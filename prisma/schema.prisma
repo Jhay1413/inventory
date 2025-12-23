@@ -13,6 +13,16 @@ datasource db {
   provider = "postgresql"
 }
 
+enum ProductCondition {
+  BrandNew
+  SecondHand
+}
+
+enum ProductAvailability {
+  Available
+  Sold
+}
+
 model User {
   id            String    @id
   name          String
@@ -74,4 +84,48 @@ model Verification {
 
   @@index([identifier])
   @@map("verification")
+}
+
+model ProductType {
+  id        String         @id @default(cuid())
+  name      String
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+  models    ProductModel[]
+
+  @@unique([name])
+  @@map("product_type")
+}
+
+model ProductModel {
+  id            String      @id @default(cuid())
+  name          String
+  productTypeId String
+  productType   ProductType @relation(fields: [productTypeId], references: [id], onDelete: Restrict)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  products      Product[]
+
+  @@unique([productTypeId, name])
+  @@index([productTypeId])
+  @@map("product_model")
+}
+
+model Product {
+  id             String              @id @default(cuid())
+  productModelId String
+  color          String
+  ram            Int                 @default(0)
+  imei           String              @unique @db.VarChar(15)
+  condition      ProductCondition
+  availability   ProductAvailability
+  status         String
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  productModel   ProductModel        @relation(fields: [productModelId], references: [id], onDelete: Restrict)
+
+  @@index([productModelId])
+  @@map("product")
 }

@@ -23,7 +23,7 @@ import {
   FormMessage,
 } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
-import { branchFormSchema, type BranchFormValues } from "../types"
+import { branchFormSchema, type BranchFormValues } from "@/types/branch"
 
 interface AddBranchModalProps {
   onAddBranch: (branch: BranchFormValues) => void

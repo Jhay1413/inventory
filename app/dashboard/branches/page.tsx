@@ -20,7 +20,7 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { AddBranchModal } from "./components/add-branch-modal"
-import type { BranchFormValues } from "./types"
+import type { BranchFormValues } from "@/types/branch"
 
 // Mock branch data
 const branchesData = [
