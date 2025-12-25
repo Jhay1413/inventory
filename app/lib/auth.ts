@@ -8,6 +8,7 @@ export const auth = betterAuth({
     database: prismaAdapter(prisma, {
         provider: "postgresql", // or "mysql", "sqlite"
     }),
+    trustedOrigins:['http://localhost:3000','https://inventory-gilt-three-94.vercel.app'],
     emailAndPassword: {
         enabled: true,
     },
