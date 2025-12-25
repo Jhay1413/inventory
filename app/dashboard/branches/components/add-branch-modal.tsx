@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { IconBuildingStore } from "@tabler/icons-react"
@@ -26,28 +26,51 @@ import { Input } from "@/components/ui/input"
 import { branchFormSchema, type BranchFormValues } from "@/types/branch"
 
 interface AddBranchModalProps {
-  onAddBranch: (branch: BranchFormValues) => void
+  onAddBranch: (branch: BranchFormValues) => Promise<void>
+  isSubmitting?: boolean
 }
 
-export function AddBranchModal({ onAddBranch }: AddBranchModalProps) {
+export function AddBranchModal({ onAddBranch, isSubmitting }: AddBranchModalProps) {
   const [open, setOpen] = useState(false)
+  const [submitError, setSubmitError] = useState<string | null>(null)
+  const [slugManuallyEdited, setSlugManuallyEdited] = useState(false)
+
+  const toSlug = (value: string) =>
+    value
+      .toLowerCase()
+      .trim()
+      .replace(/\s+/g, "_")
+      .replace(/[^a-z0-9_]+/g, "_")
+      .replace(/_+/g, "_")
+      .replace(/^_+/, "")
+      .replace(/_+$/, "")
 
   const form = useForm<BranchFormValues>({
     resolver: zodResolver(branchFormSchema),
     defaultValues: {
       name: "",
-      location: "",
-      phone: "+63 ",
-      manager: "",
-      employees: 0,
+      slug: "",
     },
   })
 
-  function onSubmit(values: BranchFormValues) {
-    console.log(values)
-    onAddBranch(values)
-    form.reset()
-    setOpen(false)
+  const watchedName = form.watch("name")
+
+  // Keep slug synced with name until the user edits slug manually.
+  useEffect(() => {
+    if (slugManuallyEdited) return
+    form.setValue("slug", toSlug(watchedName ?? ""), { shouldValidate: true })
+  }, [watchedName, slugManuallyEdited])
+
+  async function onSubmit(values: BranchFormValues) {
+    setSubmitError(null)
+    try {
+      await onAddBranch(values)
+      form.reset()
+      setSlugManuallyEdited(false)
+      setOpen(false)
+    } catch (e) {
+      setSubmitError(e instanceof Error ? e.message : "Failed to create branch")
+    }
   }
 
   return (
@@ -66,106 +89,61 @@ export function AddBranchModal({ onAddBranch }: AddBranchModalProps) {
           </DialogDescription>
         </DialogHeader>
 
+        {submitError ? (
+          <p className="text-sm text-destructive">{submitError}</p>
+        ) : null}
+
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-            {/* Branch Information */}
             <div className="space-y-4">
-              <h3 className="text-sm font-medium">Branch Information</h3>
-              
-              {/* Branch Name - Full Width */}
+              <h3 className="text-sm font-medium">Organization</h3>
+
               <FormField
                 control={form.control}
                 name="name"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Branch Name</FormLabel>
+                    <FormLabel>Name</FormLabel>
                     <FormControl>
-                      <Input placeholder="e.g. Tacloban, Catbalogan" {...field} />
+                      <Input
+                        placeholder="e.g. warehouse test"
+                        {...field}
+                        onChange={(e) => {
+                          field.onChange(e)
+                          if (!slugManuallyEdited) {
+                            form.setValue("slug", toSlug(e.currentTarget.value), { shouldValidate: true })
+                          }
+                        }}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
 
-              {/* Location - Full Width */}
               <FormField
                 control={form.control}
-                name="location"
+                name="slug"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Full Address</FormLabel>
+                    <FormLabel>Slug</FormLabel>
                     <FormControl>
-                      <Input placeholder="e.g. Real Street, Tacloban City, Leyte" {...field} />
-                    </FormControl>
-                    <FormDescription>
-                      Complete street address, city, and province
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              {/* Phone */}
-              <FormField
-                control={form.control}
-                name="phone"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Contact Number</FormLabel>
-                    <FormControl>
-                      <Input 
-                        placeholder="+63 XX-XXX-XXXX" 
-                        {...field} 
+                      <Input
+                        placeholder="e.g. warehouse_test"
+                        {...field}
+                        onChange={(e) => {
+                          setSlugManuallyEdited(true)
+                          field.onChange(toSlug(e.currentTarget.value))
+                        }}
                       />
                     </FormControl>
                     <FormDescription>
-                      Format: +63 XX-XXX-XXXX (e.g. +63 53-325-1234)
+                      Lowercase letters/numbers with underscores (used in URLs)
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-            </div>
-
-            {/* Management */}
-            <div className="space-y-4">
-              <h3 className="text-sm font-medium">Management</h3>
-              <div className="grid gap-4 md:grid-cols-2">
-                {/* Manager Name */}
-                <FormField
-                  control={form.control}
-                  name="manager"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Branch Manager</FormLabel>
-                      <FormControl>
-                        <Input placeholder="e.g. Juan Dela Cruz" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                {/* Number of Employees */}
-                <FormField
-                  control={form.control}
-                  name="employees"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Number of Employees</FormLabel>
-                      <FormControl>
-                        <Input 
-                          type="number" 
-                          placeholder="0" 
-                          {...field} 
-                        />
-                      </FormControl>
-                    
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
             </div>
 
             <div className="flex justify-end gap-3">
@@ -175,17 +153,19 @@ export function AddBranchModal({ onAddBranch }: AddBranchModalProps) {
                 onClick={() => {
                   form.reset({
                     name: "",
-                    location: "",
-                    phone: "+63 ",
-                    manager: "",
-                    employees: 0,
+                    slug: "",
                   })
+                  setSlugManuallyEdited(false)
+                  setSubmitError(null)
                   setOpen(false)
                 }}
+                disabled={isSubmitting}
               >
                 Cancel
               </Button>
-              <Button type="submit">Add Branch</Button>
+              <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting ? "Adding..." : "Add Branch"}
+              </Button>
             </div>
           </form>
         </Form>

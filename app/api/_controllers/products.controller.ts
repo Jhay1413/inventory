@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import * as service from "@/app/api/_services/products.service"
 import { CreateProductSchema, ProductListQuerySchema, UpdateProductSchema } from "@/types/api/products"
+import { getActiveOrgContext } from "@/app/api/_utils/org-context"
 
 export async function handleListProducts(req: NextRequest) {
   const rawSearch = req.nextUrl.searchParams.get("search") ?? undefined
@@ -9,6 +10,7 @@ export async function handleListProducts(req: NextRequest) {
   const parsedQuery = ProductListQuerySchema.safeParse({
     limit: req.nextUrl.searchParams.get("limit") ?? undefined,
     offset: req.nextUrl.searchParams.get("offset") ?? undefined,
+    branchId: req.nextUrl.searchParams.get("branchId") ?? undefined,
     search: rawSearch?.trim() ? rawSearch.trim() : undefined,
     status: rawStatus?.trim() ? rawStatus.trim() : undefined,
     productTypeId: req.nextUrl.searchParams.get("productTypeId") ?? undefined,
@@ -25,14 +27,21 @@ export async function handleListProducts(req: NextRequest) {
   }
 
   try {
-    const result = await service.listProducts(parsedQuery.data)
+    const { activeOrganizationId, isAdminOrganization } = await getActiveOrgContext(req)
+    if (!activeOrganizationId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    const requestedBranchId = parsedQuery.data.branchId
+    const branchId = isAdminOrganization ? requestedBranchId : activeOrganizationId
+    const result = await service.listProducts(parsedQuery.data, { branchId })
     return NextResponse.json(result)
   } catch {
     return NextResponse.json({ error: "Failed to fetch products" }, { status: 500 })
   }
 }
 
-export async function handleCreateProduct(req: Request) {
+export async function handleCreateProduct(req: NextRequest) {
   const body = await req.json().catch(() => null)
   const parsed = CreateProductSchema.safeParse(body)
 
@@ -43,8 +52,20 @@ export async function handleCreateProduct(req: Request) {
     )
   }
 
+  const { activeOrganizationId, isAdminOrganization, userId } = await getActiveOrgContext(req)
+  if (!userId || !activeOrganizationId) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  }
+
+  if (!isAdminOrganization) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  }
+
   try {
-    const product = await service.createProduct(parsed.data)
+    const product = await service.createProduct(parsed.data, {
+      actorUserId: userId,
+      actorOrganizationId: activeOrganizationId,
+    })
     return NextResponse.json({ product }, { status: 201 })
   } catch (e) {
     const message = e instanceof Error ? e.message : "Failed to create product"

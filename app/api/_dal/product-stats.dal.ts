@@ -1,17 +1,24 @@
 import { prisma } from "@/app/lib/db"
 
-export async function countAll() {
-  return prisma.product.count()
+function whereFor(opts?: { branchId?: string }, extra?: Record<string, unknown>) {
+  return {
+    ...(opts?.branchId ? { branchId: opts.branchId } : {}),
+    ...(extra ?? {}),
+  }
 }
 
-export async function countAvailable() {
-  return prisma.product.count({ where: { availability: "Available" } })
+export async function countAll(opts?: { branchId?: string }) {
+  return prisma.product.count({ where: whereFor(opts) })
 }
 
-export async function countSold() {
-  return prisma.product.count({ where: { availability: "Sold" } })
+export async function countAvailable(opts?: { branchId?: string }) {
+  return prisma.product.count({ where: whereFor(opts, { availability: "Available" }) })
 }
 
-export async function countBrandNew() {
-  return prisma.product.count({ where: { condition: "BrandNew" } })
+export async function countSold(opts?: { branchId?: string }) {
+  return prisma.product.count({ where: whereFor(opts, { availability: "Sold" }) })
+}
+
+export async function countBrandNew(opts?: { branchId?: string }) {
+  return prisma.product.count({ where: whereFor(opts, { condition: "BrandNew" }) })
 }

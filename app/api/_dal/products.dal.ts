@@ -1,6 +1,8 @@
 import { prisma } from "@/app/lib/db"
+import type { Prisma } from "@/app/generated/prisma/client"
 
 type ProductFilters = {
+  branchId?: string
   search?: string
   status?: string
   productTypeId?: string
@@ -10,43 +12,56 @@ type ProductFilters = {
 }
 
 function buildProductsWhere(filters: ProductFilters) {
-  const where: any = {}
+  const where: Prisma.ProductWhereInput = {}
+
+  const and: Prisma.ProductWhereInput[] = []
+
+  if (filters.branchId) {
+    and.push({ branchId: filters.branchId })
+  }
 
   if (filters.status) {
-    where.status = { contains: filters.status, mode: "insensitive" }
+    and.push({ status: { contains: filters.status, mode: "insensitive" } })
   }
 
   if (filters.productModelId) {
-    where.productModelId = filters.productModelId
+    and.push({ productModelId: filters.productModelId })
   }
 
   if (filters.condition) {
-    where.condition = filters.condition
+    and.push({ condition: filters.condition })
   }
 
   if (filters.availability) {
-    where.availability = filters.availability
+    and.push({ availability: filters.availability })
   }
 
   if (filters.productTypeId) {
-    where.productModel = {
-      ...(where.productModel ?? {}),
-      productTypeId: filters.productTypeId,
-    }
+    and.push({
+      productModel: {
+        productTypeId: filters.productTypeId,
+      },
+    })
   }
 
   if (filters.search) {
-    where.OR = [
-      { imei: { contains: filters.search } },
-      {
-        productModel: {
-          name: {
-            contains: filters.search,
-            mode: "insensitive",
+    and.push({
+      OR: [
+        { imei: { contains: filters.search } },
+        {
+          productModel: {
+            name: {
+              contains: filters.search,
+              mode: "insensitive",
+            },
           },
         },
-      },
-    ]
+      ],
+    })
+  }
+
+  if (and.length > 0) {
+    where.AND = and
   }
 
   return where
@@ -54,8 +69,10 @@ function buildProductsWhere(filters: ProductFilters) {
 
 export async function createProduct(data: {
   productModelId: string
+  branchId: string
   color: string
   ram: number
+  storage?: number
   imei: string
   condition: "BrandNew" | "SecondHand"
   availability: "Available" | "Sold"
@@ -71,6 +88,23 @@ export async function createProduct(data: {
       },
     },
   })
+}
+
+export async function productExistsByImei(imei: string) {
+  const found = await prisma.product.findUnique({
+    where: { imei },
+    select: { id: true },
+  })
+  return Boolean(found)
+}
+
+export async function getOrganizationIdBySlug(slug: string) {
+  const org = await prisma.organization.findUnique({
+    where: { slug },
+    select: { id: true },
+  })
+
+  return org?.id ?? null
 }
 
 export async function countProducts(filters: ProductFilters = {}) {
@@ -97,7 +131,7 @@ export async function updateProduct(id: string, data: Record<string, unknown>) {
   return prisma.product.update({
     where: { id },
     // Zod already validated the shape in the controller; keep DAL simple.
-    data: data as any,
+    data: data as Prisma.ProductUpdateInput,
     include: {
       productModel: {
         include: {

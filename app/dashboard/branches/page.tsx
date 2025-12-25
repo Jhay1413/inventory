@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { IconBuildingStore, IconMapPin, IconPhone, IconPlus, IconUsers } from "@tabler/icons-react"
+import { IconBuildingStore, IconMapPin, IconPhone, IconUsers } from "@tabler/icons-react"
 import { Button } from "@/components/ui/button"
 import {
   Table,
@@ -20,78 +20,27 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { AddBranchModal } from "./components/add-branch-modal"
-import type { BranchFormValues } from "@/types/branch"
-
-// Mock branch data
-const branchesData = [
-  {
-    id: "1",
-    name: "Tacloban",
-    location: "Real Street, Tacloban City, Leyte",
-    phone: "+63 53-325-1234",
-    manager: "Juan Dela Cruz",
-    employees: 8,
-    totalStock: 35,
-    monthlySales: 45,
-    revenue: 48500,
-    status: "Active",
-  },
-  {
-    id: "2",
-    name: "Catbalogan",
-    location: "Rizal Avenue, Catbalogan City, Samar",
-    phone: "+63 55-251-5678",
-    manager: "Maria Santos",
-    employees: 6,
-    totalStock: 28,
-    monthlySales: 38,
-    revenue: 41200,
-    status: "Active",
-  },
-  {
-    id: "3",
-    name: "Guiuan E.Samar",
-    location: "Gen. Luna St, Guiuan, Eastern Samar",
-    phone: "+63 55-260-9012",
-    manager: "Pedro Reyes",
-    employees: 5,
-    totalStock: 22,
-    monthlySales: 29,
-    revenue: 32800,
-    status: "Active",
-  },
-  {
-    id: "4",
-    name: "Borongan E.Samar",
-    location: "Borongan-Guiuan Road, Borongan City, E. Samar",
-    phone: "+63 55-261-3456",
-    manager: "Ana Garcia",
-    employees: 6,
-    totalStock: 26,
-    monthlySales: 35,
-    revenue: 38900,
-    status: "Active",
-  },
-]
+import type { Branch, BranchFormValues } from "@/types/branch"
+import { useBranches, useCreateBranch } from "@/app/queries/branches.queries"
 
 export default function BranchesPage() {
-  const [branchesList, setBranchesList] = React.useState(branchesData)
+  const { data, isLoading, error } = useBranches()
+  const createBranch = useCreateBranch()
 
-  const handleAddBranch = (newBranch: BranchFormValues) => {
-    const branch = {
-      id: String(branchesList.length + 1),
-      name: newBranch.name,
-      location: newBranch.location,
-      phone: newBranch.phone,
-      manager: newBranch.manager,
-      employees: newBranch.employees,
-      totalStock: 0,
-      monthlySales: 0,
-      revenue: 0,
-      status: "Active" as const,
-    }
-    setBranchesList([...branchesList, branch])
-  }
+  const branchesList: Branch[] = React.useMemo(() => {
+    return (data?.branches ?? []).map((b) => ({
+      id: b.id,
+      name: b.name,
+      location: b.location ?? "—",
+      phone: b.phone ?? "—",
+      manager: b.manager ?? "—",
+      employees: b.employees,
+      totalStock: b.totalStock,
+      monthlySales: b.monthlySales,
+      revenue: b.revenue,
+      status: b.status,
+    }))
+  }, [data])
 
   const totalBranches = branchesList.length
   const totalEmployees = branchesList.reduce((sum, branch) => sum + branch.employees, 0)
@@ -108,7 +57,12 @@ export default function BranchesPage() {
             Manage all store locations and their performance
           </p>
         </div>
-        <AddBranchModal onAddBranch={handleAddBranch} />
+        <AddBranchModal
+          isSubmitting={createBranch.isPending}
+          onAddBranch={async (values: BranchFormValues) => {
+            await createBranch.mutateAsync(values)
+          }}
+        />
       </div>
 
       {/* Stats Cards */}
@@ -178,48 +132,68 @@ export default function BranchesPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {branchesList.map((branch) => (
-                <TableRow key={branch.id}>
-                  <TableCell className="font-medium">
-                    <div className="flex items-center gap-2">
-                      <IconBuildingStore className="h-4 w-4 text-muted-foreground" />
-                      {branch.name}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <IconMapPin className="h-4 w-4 text-muted-foreground" />
-                      <span className="max-w-[200px] truncate">{branch.location}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <IconPhone className="h-4 w-4 text-muted-foreground" />
-                      {branch.phone}
-                    </div>
-                  </TableCell>
-                  <TableCell>{branch.manager}</TableCell>
-                  <TableCell className="text-center">{branch.employees}</TableCell>
-                  <TableCell className="text-center">{branch.totalStock}</TableCell>
-                  <TableCell className="text-center">{branch.monthlySales}</TableCell>
-                  <TableCell className="text-right font-semibold">
-                    ₱{branch.revenue.toLocaleString()}
-                  </TableCell>
-                  <TableCell>
-                    <Badge
-                      variant="default"
-                      className="bg-green-600 hover:bg-green-700"
-                    >
-                      {branch.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <Button variant="ghost" size="sm">
-                      View Details
-                    </Button>
+              {isLoading ? (
+                <TableRow>
+                  <TableCell colSpan={10} className="text-sm text-muted-foreground">
+                    Loading branches...
                   </TableCell>
                 </TableRow>
-              ))}
+              ) : error ? (
+                <TableRow>
+                  <TableCell colSpan={10} className="text-sm text-destructive">
+                    {error instanceof Error ? error.message : "Failed to load branches"}
+                  </TableCell>
+                </TableRow>
+              ) : branchesList.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={10} className="text-sm text-muted-foreground">
+                    No branches found.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                branchesList.map((branch) => (
+                  <TableRow key={branch.id}>
+                    <TableCell className="font-medium">
+                      <div className="flex items-center gap-2">
+                        <IconBuildingStore className="h-4 w-4 text-muted-foreground" />
+                        {branch.name}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <IconMapPin className="h-4 w-4 text-muted-foreground" />
+                        <span className="max-w-[200px] truncate">{branch.location}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <IconPhone className="h-4 w-4 text-muted-foreground" />
+                        {branch.phone}
+                      </div>
+                    </TableCell>
+                    <TableCell>{branch.manager}</TableCell>
+                    <TableCell className="text-center">{branch.employees}</TableCell>
+                    <TableCell className="text-center">{branch.totalStock}</TableCell>
+                    <TableCell className="text-center">{branch.monthlySales}</TableCell>
+                    <TableCell className="text-right font-semibold">
+                      ₱{branch.revenue.toLocaleString()}
+                    </TableCell>
+                    <TableCell>
+                      <Badge
+                        variant="default"
+                        className="bg-green-600 hover:bg-green-700"
+                      >
+                        {branch.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button variant="ghost" size="sm">
+                        View Details
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
             </TableBody>
           </Table>
         </CardContent>
@@ -235,6 +209,7 @@ export default function BranchesPage() {
           <CardContent>
             <div className="space-y-4">
               {branchesList
+                .slice()
                 .sort((a, b) => b.revenue - a.revenue)
                 .slice(0, 3)
                 .map((branch, index) => (
@@ -265,6 +240,7 @@ export default function BranchesPage() {
           <CardContent>
             <div className="space-y-4">
               {branchesList
+                .slice()
                 .sort((a, b) => b.totalStock - a.totalStock)
                 .map((branch) => (
                   <div key={branch.id} className="flex items-center justify-between">
@@ -277,7 +253,7 @@ export default function BranchesPage() {
                         <div
                           className="h-full bg-primary"
                           style={{
-                            width: `${(branch.totalStock / totalStock) * 100}%`,
+                            width: `${totalStock > 0 ? (branch.totalStock / totalStock) * 100 : 0}%`,
                           }}
                         />
                       </div>

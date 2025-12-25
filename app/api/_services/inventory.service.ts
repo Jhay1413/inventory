@@ -1,8 +1,8 @@
 import * as dal from "@/app/api/_dal/inventory.dal"
 import type { InventoryQuery } from "@/types/api/inventory"
 
-export async function getInventory(query: InventoryQuery) {
-  const products = await dal.listProductsForInventory(query)
+export async function getInventory(query: InventoryQuery, opts?: { branchId?: string }) {
+  const products = await dal.listProductsForInventory(query, { branchId: opts?.branchId })
 
   const byModel = new Map<
     string,

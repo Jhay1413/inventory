@@ -1,17 +1,36 @@
 "use client"
 
 import * as React from "react"
+import Barcode from "react-barcode"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm, type Resolver } from "react-hook-form"
+import { toast } from "sonner"
+import { Barcode as BarcodeIcon, Eye, MoreHorizontal, Pencil, Trash2 } from "lucide-react"
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
+import { Separator } from "@/components/ui/separator"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
 import {
   Form,
   FormControl,
@@ -30,7 +49,7 @@ import {
 } from "@/components/ui/select"
 import { useProductTypes } from "@/app/queries/product-types.queries"
 import { useProductModelsByProductType } from "@/app/queries/product-models.queries"
-import { useDeleteProduct, useUpdateProduct } from "@/app/queries/products.queries"
+import { useDeleteProduct, useProductAuditLogs, useUpdateProduct } from "@/app/queries/products.queries"
 import {
   gadgetFormSchema,
   GadgetAvailability,
@@ -39,13 +58,32 @@ import {
 } from "@/types/gadget"
 import type { ProductWithRelations } from "@/types/api/products"
 
+function formatAuditAction(action: string) {
+  switch (action) {
+    case "ProductCreated":
+      return "Added"
+    case "TransferRequested":
+      return "Forwarded"
+    case "TransferReceived":
+      return "Received"
+    case "Sold":
+      return "Sold"
+    default:
+      return action
+  }
+}
+
 export function ProductRowActions({ product }: { product: ProductWithRelations }) {
   const [viewOpen, setViewOpen] = React.useState(false)
+  const [barcodeOpen, setBarcodeOpen] = React.useState(false)
   const [editOpen, setEditOpen] = React.useState(false)
   const [deleteOpen, setDeleteOpen] = React.useState(false)
 
+  const barcodeContainerRef = React.useRef<HTMLDivElement | null>(null)
+
   const updateProduct = useUpdateProduct()
   const deleteProduct = useDeleteProduct()
+  const auditLogs = useProductAuditLogs(product.id, { enabled: viewOpen })
 
   const { data: productTypesData, isLoading: productTypesLoading } = useProductTypes()
 
@@ -56,6 +94,7 @@ export function ProductRowActions({ product }: { product: ProductWithRelations }
       productModelId: product.productModelId,
       color: product.color,
       ram: product.ram,
+      storage: product.storage,
       imei: product.imei,
       condition: product.condition as GadgetFormValues["condition"],
       availability: product.availability as GadgetFormValues["availability"],
@@ -67,6 +106,84 @@ export function ProductRowActions({ product }: { product: ProductWithRelations }
   const { data: productModelsData, isLoading: productModelsLoading } =
     useProductModelsByProductType(productTypeId)
 
+  async function copyImei() {
+    try {
+      await navigator.clipboard.writeText(product.imei)
+      toast.success("Copied")
+    } catch {
+      toast.error("Failed to copy")
+    }
+  }
+
+  function printBarcode() {
+    const svg = barcodeContainerRef.current?.querySelector("svg")?.outerHTML
+    if (!svg) {
+      toast.error("Barcode not ready")
+      return
+    }
+
+    const title = "Barcode"
+    const safeText = product.imei
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+
+    const html = `<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>${title}</title>
+    <style>
+      body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; padding: 24px; }
+      .wrap { display: grid; gap: 12px; justify-items: center; }
+      .imei { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 14px; }
+      svg { width: 320px; height: auto; }
+      @media print { body { padding: 0; } }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      ${svg}
+      <div class="imei">${safeText}</div>
+    </div>
+  </body>
+</html>`
+
+    // Print via an iframe to avoid blank popups / cross-origin issues.
+    const iframe = document.createElement("iframe")
+    iframe.style.position = "fixed"
+    iframe.style.right = "0"
+    iframe.style.bottom = "0"
+    iframe.style.width = "0"
+    iframe.style.height = "0"
+    iframe.style.border = "0"
+    iframe.srcdoc = html
+    document.body.appendChild(iframe)
+
+    const cleanup = () => {
+      try {
+        document.body.removeChild(iframe)
+      } catch {
+        // ignore
+      }
+    }
+
+    iframe.onload = () => {
+      const win = iframe.contentWindow
+      if (!win) {
+        toast.error("Print failed")
+        cleanup()
+        return
+      }
+
+      win.focus()
+      win.print()
+      // Give the print dialog time to open before cleanup.
+      window.setTimeout(cleanup, 1000)
+    }
+  }
+
   function handleEditOpenChange(nextOpen: boolean) {
     setEditOpen(nextOpen)
 
@@ -77,6 +194,7 @@ export function ProductRowActions({ product }: { product: ProductWithRelations }
         productModelId: product.productModelId,
         color: product.color,
         ram: product.ram,
+        storage: product.storage,
         imei: product.imei,
         condition: product.condition as GadgetFormValues["condition"],
         availability: product.availability as GadgetFormValues["availability"],
@@ -92,6 +210,7 @@ export function ProductRowActions({ product }: { product: ProductWithRelations }
         productModelId: values.productModelId,
         color: values.color,
         ram: values.ram,
+        storage: values.storage,
         imei: values.imei,
         condition: values.condition,
         availability: values.availability,
@@ -108,52 +227,186 @@ export function ProductRowActions({ product }: { product: ProductWithRelations }
   }
 
   return (
-    <div className="flex justify-end gap-2">
+    <div className="flex justify-end">
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="outline" size="sm" aria-label="Open actions">
+            <MoreHorizontal className="h-4 w-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem onSelect={() => setViewOpen(true)}>
+            <Eye />
+            View
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => setEditOpen(true)}>
+            <Pencil />
+            Edit
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => setBarcodeOpen(true)}>
+            <BarcodeIcon />
+            Generate Barcode
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem variant="destructive" onSelect={() => setDeleteOpen(true)}>
+            <Trash2 />
+            Delete
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+
       {/* View */}
       <Dialog open={viewOpen} onOpenChange={setViewOpen}>
-        <DialogTrigger asChild>
-          <Button variant="outline" size="sm">
-            View
-          </Button>
-        </DialogTrigger>
-        <DialogContent>
+        <DialogContent className="min-w-5xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Product Details</DialogTitle>
             <DialogDescription>View the details for this product.</DialogDescription>
           </DialogHeader>
 
-          <div className="grid gap-3 text-sm">
-            <div className="flex justify-between gap-4">
-              <span className="text-muted-foreground">Type</span>
-              <span className="font-medium">{product.productModel.productType.name}</span>
+          <div className="rounded-md border p-4">
+            <div className="grid gap-3 text-sm md:grid-cols-2">
+              <div className="flex justify-between gap-4">
+                <span className="text-muted-foreground">Type</span>
+                <span className="font-medium">{product.productModel.productType.name}</span>
+              </div>
+              <div className="flex justify-between gap-4">
+                <span className="text-muted-foreground">Model</span>
+                <span className="font-medium">{product.productModel.name}</span>
+              </div>
+              <div className="flex justify-between gap-4">
+                <span className="text-muted-foreground">Color</span>
+                <span className="font-medium">{product.color}</span>
+              </div>
+              <div className="flex justify-between gap-4">
+                <span className="text-muted-foreground">RAM</span>
+                <span className="font-medium">{product.ram}</span>
+              </div>
+              <div className="flex justify-between gap-4">
+                <span className="text-muted-foreground">Storage</span>
+                <span className="font-medium">{product.storage}</span>
+              </div>
+              <div className="flex justify-between gap-4">
+                <span className="text-muted-foreground">IMEI</span>
+                <span className="font-mono text-xs">{product.imei}</span>
+              </div>
+              <div className="flex justify-between gap-4">
+                <span className="text-muted-foreground">Condition</span>
+                <span className="font-medium">{product.condition}</span>
+              </div>
+              <div className="flex justify-between gap-4">
+                <span className="text-muted-foreground">Availability</span>
+                <span className="font-medium">{product.availability}</span>
+              </div>
+              <div className="flex justify-between gap-4 md:col-span-2">
+                <span className="text-muted-foreground">Status</span>
+                <span className="font-medium text-right">{product.status}</span>
+              </div>
             </div>
-            <div className="flex justify-between gap-4">
-              <span className="text-muted-foreground">Model</span>
-              <span className="font-medium">{product.productModel.name}</span>
+          </div>
+
+          <Separator />
+
+          <div className="space-y-3">
+            <div className="flex items-center justify-between gap-4">
+              <h3 className="text-sm font-medium">Audit Logs</h3>
+              {auditLogs.isLoading ? (
+                <span className="text-xs text-muted-foreground">Loading…</span>
+              ) : null}
             </div>
-            <div className="flex justify-between gap-4">
-              <span className="text-muted-foreground">Color</span>
-              <span className="font-medium">{product.color}</span>
+
+            <div className="rounded-md border overflow-hidden">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[160px]">Date</TableHead>
+                    <TableHead className="w-[140px]">Action</TableHead>
+                    <TableHead>User</TableHead>
+                    <TableHead>Details</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {auditLogs.isError ? (
+                    <TableRow>
+                      <TableCell colSpan={4} className="text-sm text-destructive">
+                        Failed to load logs.
+                      </TableCell>
+                    </TableRow>
+                  ) : (auditLogs.data?.logs ?? []).length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={4} className="text-sm text-muted-foreground">
+                        No logs yet.
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    (auditLogs.data?.logs ?? []).map((log) => {
+                      const date = new Date(log.createdAt)
+
+                      const transferDetails = log.transfer
+                        ? `From ${log.transfer.fromBranch.name} → ${log.transfer.toBranch.name}${log.transfer.reason ? ` • ${log.transfer.reason}` : ""}`
+                        : null
+
+                      const invoiceDetails = log.invoice
+                        ? `₦${log.invoice.salePrice.toLocaleString()} • ${log.invoice.paymentType}${log.invoice.customerName ? ` • ${log.invoice.customerName}` : ""}`
+                        : null
+
+                      const detailsText = invoiceDetails ?? transferDetails ?? "—"
+
+                      return (
+                        <TableRow key={log.id}>
+                          <TableCell className="text-xs text-muted-foreground">
+                            {Number.isNaN(date.getTime()) ? log.createdAt : date.toLocaleString()}
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="secondary">{formatAuditAction(log.action)}</Badge>
+                          </TableCell>
+                          <TableCell className="text-sm">
+                            <div className="leading-tight">
+                              <div className="font-medium">{log.actorUser.name}</div>
+                              <div className="text-xs text-muted-foreground">{log.actorUser.email}</div>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-xs text-muted-foreground">{detailsText}</TableCell>
+                        </TableRow>
+                      )
+                    })
+                  )}
+                </TableBody>
+              </Table>
             </div>
-            <div className="flex justify-between gap-4">
-              <span className="text-muted-foreground">RAM</span>
-              <span className="font-medium">{product.ram}</span>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Barcode */}
+      <Dialog open={barcodeOpen} onOpenChange={setBarcodeOpen}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Generate Barcode</DialogTitle>
+            <DialogDescription>
+              Scan will return the IMEI/Serial.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid gap-4">
+            <div className="rounded-md border p-4 grid gap-3 justify-items-center">
+              <div ref={barcodeContainerRef}>
+                <Barcode
+                  value={product.imei}
+                  format="CODE128"
+                  displayValue={false}
+                  margin={0}
+                  height={64}
+                  renderer="svg"
+                />
+              </div>
+              <div className="font-mono text-xs">{product.imei}</div>
             </div>
-            <div className="flex justify-between gap-4">
-              <span className="text-muted-foreground">IMEI</span>
-              <span className="font-mono text-xs">{product.imei}</span>
-            </div>
-            <div className="flex justify-between gap-4">
-              <span className="text-muted-foreground">Condition</span>
-              <span className="font-medium">{product.condition}</span>
-            </div>
-            <div className="flex justify-between gap-4">
-              <span className="text-muted-foreground">Availability</span>
-              <span className="font-medium">{product.availability}</span>
-            </div>
-            <div className="flex justify-between gap-4">
-              <span className="text-muted-foreground">Status</span>
-              <span className="font-medium">{product.status}</span>
+
+            <div className="flex justify-end gap-3">
+              <Button variant="outline" onClick={copyImei}>
+                Copy
+              </Button>
+              <Button onClick={printBarcode}>Print</Button>
             </div>
           </div>
         </DialogContent>
@@ -161,11 +414,6 @@ export function ProductRowActions({ product }: { product: ProductWithRelations }
 
       {/* Edit */}
       <Dialog open={editOpen} onOpenChange={handleEditOpenChange}>
-        <DialogTrigger asChild>
-          <Button variant="outline" size="sm">
-            Edit
-          </Button>
-        </DialogTrigger>
         <DialogContent className="min-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Product</DialogTitle>
@@ -275,15 +523,29 @@ export function ProductRowActions({ product }: { product: ProductWithRelations }
                     )}
                   />
 
+                  <FormField
+                    control={form.control}
+                    name="storage"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Storage</FormLabel>
+                        <FormControl>
+                          <Input placeholder="e.g. 128" type="number" inputMode="numeric" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
                   <div className="md:col-span-2">
                     <FormField
                       control={form.control}
                       name="imei"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>IMEI Number</FormLabel>
+                          <FormLabel>IMEI / Serial</FormLabel>
                           <FormControl>
-                            <Input placeholder="Enter 15 digit IMEI number" maxLength={15} inputMode="numeric" {...field} />
+                            <Input placeholder="Enter IMEI / Serial" maxLength={15} inputMode="text" {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -371,11 +633,6 @@ export function ProductRowActions({ product }: { product: ProductWithRelations }
 
       {/* Delete */}
       <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
-        <DialogTrigger asChild>
-          <Button variant="destructive" size="sm">
-            Delete
-          </Button>
-        </DialogTrigger>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Delete product?</DialogTitle>

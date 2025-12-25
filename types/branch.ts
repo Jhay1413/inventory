@@ -26,18 +26,12 @@ export const branchFormSchema = z.object({
   name: z.string().min(2, {
     message: "Branch name must be at least 2 characters",
   }),
-  location: z.string().min(5, {
-    message: "Location must be at least 5 characters",
-  }),
-  phone: z.string().regex(/^\+63\s\d{2}-\d{3}-\d{4}$/, {
-    message: "Phone must be in format: +63 XX-XXX-XXXX",
-  }),
-  manager: z.string().min(2, {
-    message: "Manager name must be at least 2 characters",
-  }),
-  employees: z.number().min(1, {
-    message: "Employees must be at least 1",
-  }),
+  slug: z
+    .string()
+    .min(2, { message: "Slug must be at least 2 characters" })
+    .regex(/^[a-z0-9]+(?:_[a-z0-9]+)*$/, {
+      message: "Slug must be lowercase letters/numbers with underscores",
+    }),
 })
 
 export type BranchFormValues = z.infer<typeof branchFormSchema>

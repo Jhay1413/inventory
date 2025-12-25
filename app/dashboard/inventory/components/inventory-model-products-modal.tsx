@@ -115,6 +115,7 @@ export function InventoryModelProductsModal({ open, onOpenChange, productModelId
                 <TableHead>IMEI</TableHead>
                 <TableHead>Color</TableHead>
                 <TableHead className="text-center">RAM</TableHead>
+                <TableHead className="text-center">Storage</TableHead>
                 <TableHead>Condition</TableHead>
                 <TableHead>Availability</TableHead>
                 <TableHead>Description</TableHead>
@@ -123,13 +124,13 @@ export function InventoryModelProductsModal({ open, onOpenChange, productModelId
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center text-muted-foreground">
+                  <TableCell colSpan={7} className="text-center text-muted-foreground">
                     Loading...
                   </TableCell>
                 </TableRow>
               ) : products.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center text-muted-foreground">
+                  <TableCell colSpan={7} className="text-center text-muted-foreground">
                     No products found
                   </TableCell>
                 </TableRow>
@@ -139,6 +140,7 @@ export function InventoryModelProductsModal({ open, onOpenChange, productModelId
                     <TableCell className="font-medium">{p.imei}</TableCell>
                     <TableCell>{p.color}</TableCell>
                     <TableCell className="text-center">{p.ram}</TableCell>
+                    <TableCell className="text-center">{p.storage}</TableCell>
                     <TableCell>
                       <Badge variant="outline">{p.condition}</Badge>
                     </TableCell>

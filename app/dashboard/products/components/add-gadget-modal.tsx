@@ -23,6 +23,7 @@ import {
   FormMessage,
 } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
+import { Checkbox } from "@/components/ui/checkbox"
 import {
   Select,
   SelectContent,
@@ -69,6 +70,8 @@ export function AddGadgetModal({ onAddGadget }: AddGadgetModalProps) {
       productModelId: "",
       color: "",
       ram: 0,
+      storage: 0,
+      autoGenerateImei: false,
       imei: "",
       condition: GadgetCondition.BRAND_NEW,
       availability: GadgetAvailability.AVAILABLE,
@@ -77,6 +80,7 @@ export function AddGadgetModal({ onAddGadget }: AddGadgetModalProps) {
   })
 
   const productTypeId = form.watch("productTypeId")
+  const autoGenerateImei = form.watch("autoGenerateImei")
   const normalizedModelSearch = productModelSearch.trim() || undefined
   const { data: productTypesData, isLoading: productTypesLoading } = useProductTypes()
   const { data: productModelsData, isLoading: productModelsLoading } =
@@ -111,8 +115,8 @@ export function AddGadgetModal({ onAddGadget }: AddGadgetModalProps) {
   }
 
   function handleImeiChange(rawValue: string) {
-    const digitsOnly = rawValue.replace(/\D/g, "").slice(0, 15)
-    form.setValue("imei", digitsOnly, { shouldValidate: true, shouldDirty: true })
+    const normalized = rawValue.replace(/\s+/g, "").slice(0, 15)
+    form.setValue("imei", normalized, { shouldValidate: true, shouldDirty: true })
   }
 
   return (
@@ -326,27 +330,71 @@ export function AddGadgetModal({ onAddGadget }: AddGadgetModalProps) {
                     </FormItem>
                   )}
                 />
+
+                {/* Storage */}
+                <FormField
+                  control={form.control}
+                  name="storage"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Storage</FormLabel>
+                      <FormControl>
+                        <Input placeholder="e.g. 128" type="number" inputMode="numeric" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
               </div>
 
-              {/* IMEI - Full Width */}
+              {/* IMEI / Serial - Full Width */}
+              <FormField
+                control={form.control}
+                name="autoGenerateImei"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-start gap-2 rounded-md border p-3">
+                    <FormControl>
+                      <Checkbox
+                        checked={field.value}
+                        onCheckedChange={(checked) => {
+                          const next = checked === true
+                          field.onChange(next)
+                          if (next) {
+                            form.setValue("imei", "", { shouldDirty: true, shouldValidate: true })
+                            form.clearErrors("imei")
+                          }
+                        }}
+                      />
+                    </FormControl>
+                    <div className="space-y-1 leading-none">
+                      <FormLabel>Auto-generate IMEI/Serial</FormLabel>
+                      <FormDescription>
+                        Use this if you don&apos;t want to enter one manually.
+                      </FormDescription>
+                    </div>
+                  </FormItem>
+                )}
+              />
+
               <FormField
                 control={form.control}
                 name="imei"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>IMEI Number</FormLabel>
+                    <FormLabel>IMEI / Serial</FormLabel>
                     <FormControl>
                       <Input 
-                        placeholder="Enter 15 digit IMEI number" 
+                        placeholder={autoGenerateImei ? "Will be generated automatically" : "Enter IMEI / Serial"}
                         maxLength={15}
-                        inputMode="numeric"
+                        inputMode="text"
+                        disabled={autoGenerateImei}
                         {...field}
                         ref={imeiInputRef}
                         onChange={(e) => handleImeiChange(e.target.value)}
                       />
                     </FormControl>
                     <FormDescription>
-                      Must be exactly 15 digits
+                      Up to 15 characters
                     </FormDescription>
                     <FormMessage />
                   </FormItem>

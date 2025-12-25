@@ -48,6 +48,74 @@ async function main() {
     }
   }
 
+  // Seed Organization + Membership
+  const organizationsSeed = [
+    { name: "Warehouse", slug: "warehouse" },
+    { name: "Tacloban", slug: "tacloban" },
+    { name: "Catbalogan", slug: "catbalogan" },
+    { name: "Guiuan", slug: "guiuan" },
+    { name: "Borongan", slug: "borongan" },
+  ] as const;
+
+  const organizationSeedDefaults = {
+    logo: "https://example.com/logo.png",
+    userId: "some_user_id",
+    keepCurrentActiveOrganization: false,
+  } as const;
+
+  const fallbackAdminUser = await prisma.user.findUnique({
+    where: { email: "admin@example.com" },
+    select: { id: true },
+  });
+
+  const requestedUser = await prisma.user.findUnique({
+    where: { id: organizationSeedDefaults.userId },
+    select: { id: true },
+  });
+
+  const organizationOwnerUserId = requestedUser?.id ?? fallbackAdminUser?.id;
+  if (!organizationOwnerUserId) {
+    console.warn(
+      "⚠️ Skipping organization seed: no matching user found (requested userId not present and admin@example.com missing)."
+    );
+  } else {
+    for (const org of organizationsSeed) {
+      const metadata = {
+        isAdminOrganization: org.slug === "warehouse",
+      } as const
+
+      const existingOrganization = await prisma.organization.findUnique({
+        where: { slug: org.slug },
+        select: { id: true, slug: true },
+      });
+
+      if (existingOrganization) {
+        await prisma.organization.update({
+          where: { slug: org.slug },
+          data: {
+            metadata: JSON.stringify(metadata),
+          },
+        })
+        console.log(`↩️ Organization already exists: ${existingOrganization.slug}`);
+        continue;
+      }
+
+      await auth.api.createOrganization({
+        body: {
+          name: org.name,
+          slug: org.slug,
+          logo: organizationSeedDefaults.logo,
+          metadata,
+          userId: organizationOwnerUserId,
+          keepCurrentActiveOrganization:
+            organizationSeedDefaults.keepCurrentActiveOrganization,
+        },
+      });
+
+      console.log(`✅ Created organization: ${org.slug}`);
+    }
+  }
+
   // Seed Product Types + Models
   const productTypeSeed: Array<{ name: string; models: string[] }> = [
     {
@@ -97,6 +165,15 @@ async function main() {
   }
 
   console.log(`✅ Seeded ${productTypeSeed.length} product types (with models)`);
+
+  const warehouseOrg = await prisma.organization.findUnique({
+    where: { slug: "warehouse" },
+    select: { id: true },
+  })
+
+  if (!warehouseOrg?.id) {
+    throw new Error("Missing organization with slug 'warehouse' (required for product seeding)")
+  }
 
   // Seed Products (idempotent via IMEI)
   const productModelNames = [
@@ -206,6 +283,7 @@ async function main() {
       where: { imei: p.imei },
       update: {
         productModelId: modelIdByName.get(p.productModelName)!,
+        branchId: warehouseOrg.id,
         color: p.color,
         ram: p.ram,
         condition: p.condition,
@@ -215,6 +293,7 @@ async function main() {
       create: {
         imei: p.imei,
         productModelId: modelIdByName.get(p.productModelName)!,
+        branchId: warehouseOrg.id,
         color: p.color,
         ram: p.ram,
         condition: p.condition,

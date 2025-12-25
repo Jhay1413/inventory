@@ -34,12 +34,37 @@ import type { GadgetFormSubmission } from "@/types/gadget"
 import { useCreateProduct, useProducts } from "@/app/queries/products.queries"
 import { useProductTypes } from "@/app/queries/product-types.queries"
 import { useProductStats } from "@/app/queries/product-stats.queries"
+import { authClient } from "@/app/lib/auth-client"
 
 export default function ProductsPage() {
   const [searchQuery, setSearchQuery] = React.useState("")
   const [typeFilter, setTypeFilter] = React.useState("all")
-  const [conditionFilter, setConditionFilter] = React.useState("all")
-  const [availabilityFilter, setAvailabilityFilter] = React.useState("all")
+  const [conditionFilter, setConditionFilter] = React.useState<"all" | "BrandNew" | "SecondHand">(
+    "all"
+  )
+  const [availabilityFilter, setAvailabilityFilter] = React.useState<"all" | "Available" | "Sold">(
+    "all"
+  )
+
+  const { data: activeOrganization } = authClient.useActiveOrganization()
+
+  const isAdminOrganization = React.useMemo(() => {
+    const raw =
+      activeOrganization &&
+      typeof activeOrganization === "object" &&
+      "metadata" in activeOrganization
+        ? (activeOrganization as Record<string, unknown>).metadata
+        : undefined
+    if (!raw) return false
+    try {
+      const parsed = typeof raw === "string" ? JSON.parse(raw) : raw
+      return Boolean(
+        parsed && typeof parsed === "object" && (parsed as Record<string, unknown>).isAdminOrganization === true
+      )
+    } catch {
+      return false
+    }
+  }, [activeOrganization])
 
   const listFilters = React.useMemo(
     () => ({
@@ -47,8 +72,8 @@ export default function ProductsPage() {
       offset: 0,
       search: searchQuery.trim() || undefined,
       productTypeId: typeFilter === "all" ? undefined : typeFilter,
-      condition: conditionFilter === "all" ? undefined : (conditionFilter as any),
-      availability: availabilityFilter === "all" ? undefined : (availabilityFilter as any),
+      condition: conditionFilter === "all" ? undefined : conditionFilter,
+      availability: availabilityFilter === "all" ? undefined : availabilityFilter,
     }),
     [availabilityFilter, conditionFilter, searchQuery, typeFilter]
   )
@@ -65,7 +90,9 @@ export default function ProductsPage() {
       productModelId: newGadget.productModelId,
       color: newGadget.color,
       ram: newGadget.ram,
+      storage: newGadget.storage,
       imei: newGadget.imei,
+      autoGenerateImei: newGadget.autoGenerateImei,
       condition: newGadget.condition,
       availability: newGadget.availability,
       status: newGadget.status,
@@ -82,7 +109,7 @@ export default function ProductsPage() {
             Manage your gadget inventory across all branches
           </p>
         </div>
-        <AddGadgetModal onAddGadget={handleAddGadget} />
+        {isAdminOrganization ? <AddGadgetModal onAddGadget={handleAddGadget} /> : null}
       </div>
 
       {/* Stats Cards */}
@@ -120,7 +147,10 @@ export default function ProductsPage() {
               </SelectContent>
             </Select>
 
-            <Select value={conditionFilter} onValueChange={setConditionFilter}>
+            <Select
+              value={conditionFilter}
+              onValueChange={(v) => setConditionFilter(v as "all" | "BrandNew" | "SecondHand")}
+            >
               <SelectTrigger>
                 <SelectValue placeholder="Condition" />
               </SelectTrigger>
@@ -131,7 +161,10 @@ export default function ProductsPage() {
               </SelectContent>
             </Select>
 
-            <Select value={availabilityFilter} onValueChange={setAvailabilityFilter}>
+            <Select
+              value={availabilityFilter}
+              onValueChange={(v) => setAvailabilityFilter(v as "all" | "Available" | "Sold")}
+            >
               <SelectTrigger>
                 <SelectValue placeholder="Availability" />
               </SelectTrigger>
@@ -160,6 +193,7 @@ export default function ProductsPage() {
                 <TableHead>Type</TableHead>
                 <TableHead>Model</TableHead>
                 <TableHead>RAM</TableHead>
+                <TableHead>Storage</TableHead>
                 <TableHead>IMEI</TableHead>
                 <TableHead>Condition</TableHead>
                 <TableHead>Availability</TableHead>
@@ -180,6 +214,9 @@ export default function ProductsPage() {
                   </TableCell>
                   <TableCell>
                     <div className="font-medium">{product.ram}</div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="font-medium">{product.storage}</div>
                   </TableCell>
                   <TableCell className="font-mono text-xs">{product.imei}</TableCell>
                   <TableCell>

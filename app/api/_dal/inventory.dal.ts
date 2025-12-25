@@ -1,9 +1,10 @@
 import { prisma } from "@/app/lib/db"
 import type { InventoryQuery } from "@/types/api/inventory"
 
-export async function listProductsForInventory(query: InventoryQuery) {
+export async function listProductsForInventory(query: InventoryQuery, opts?: { branchId?: string }) {
   return prisma.product.findMany({
     where: {
+      ...(opts?.branchId ? { branchId: opts.branchId } : {}),
       ...(query.availability ? { availability: query.availability } : {}),
       ...(query.condition ? { condition: query.condition } : {}),
       ...(query.productTypeId

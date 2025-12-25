@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { InventoryQuerySchema } from "@/types/api/inventory"
 import * as service from "@/app/api/_services/inventory.service"
+import { getActiveOrgContext } from "@/app/api/_utils/org-context"
 
 export async function handleGetInventory(req: NextRequest) {
   const rawSearch = req.nextUrl.searchParams.get("search") ?? undefined
@@ -20,7 +21,14 @@ export async function handleGetInventory(req: NextRequest) {
   }
 
   try {
-    const result = await service.getInventory(parsedQuery.data)
+    const { activeOrganizationId, isAdminOrganization } = await getActiveOrgContext(req)
+    if (!activeOrganizationId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    const branchId = isAdminOrganization ? undefined : activeOrganizationId
+
+    const result = await service.getInventory(parsedQuery.data, { branchId })
     return NextResponse.json(result)
   } catch {
     return NextResponse.json({ error: "Failed to fetch inventory" }, { status: 500 })

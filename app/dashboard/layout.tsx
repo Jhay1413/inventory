@@ -3,9 +3,23 @@ import {
   SidebarInset,
   SidebarProvider,
 } from "@/components/ui/sidebar"
+import { auth } from "@/app/lib/auth"
+import { headers } from "next/headers"
+import { redirect } from "next/navigation"
 import { AppSidebar } from "./components/app-sidebar"
 import { SiteHeader } from "./components/site-header"
-export default function Layout({ children }: { children: React.ReactNode }) {
+
+export default async function Layout({ children }: { children: React.ReactNode }) {
+  const sessionResponse = await auth.api.getSession({
+    headers: await headers(),
+  })
+  if (!sessionResponse?.session) {
+    redirect("/auth/login")
+  }
+  if (!sessionResponse.session.activeOrganizationId) {
+    redirect("/select-organization")
+  }
+
   return (
     <SidebarProvider
       style={

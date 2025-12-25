@@ -16,8 +16,8 @@ export const GadgetAvailability = {
 
 export type GadgetAvailabilityValue = typeof GadgetAvailability[keyof typeof GadgetAvailability]
 
-// Zod schema for gadget form
-export const gadgetFormSchema = z.object({
+// Base gadget schema (no effects) so it can be extended.
+export const gadgetFormBaseSchema = z.object({
   productTypeId: z.string().min(1, {
     message: "Please select a product type",
   }),
@@ -30,9 +30,16 @@ export const gadgetFormSchema = z.object({
   ram: z.coerce.number().int().min(1, {
     message: "RAM is required",
   }),
-  imei: z.string().regex(/^\d{15}$/, {
-    message: "IMEI must be exactly 15 digits",
+  storage: z.coerce.number().int().min(0, {
+    message: "Storage is required",
   }),
+  autoGenerateImei: z.boolean().default(false),
+  imei: z
+    .string()
+    .trim()
+    .max(15, {
+      message: "IMEI/Serial must be at most 15 characters",
+    }),
   condition: z.enum([GadgetCondition.BRAND_NEW, GadgetCondition.SECOND_HAND] as const, {
     message: "Please select a condition",
   }),
@@ -44,6 +51,20 @@ export const gadgetFormSchema = z.object({
   }),
 })
 
+// Zod schema for gadget form (with conditional validation).
+export const gadgetFormSchema = gadgetFormBaseSchema.superRefine((v, ctx) => {
+  const wantsAuto = v.autoGenerateImei === true
+  const hasImei = v.imei.trim().length > 0
+
+  if (!wantsAuto && !hasImei) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["imei"],
+      message: "IMEI/Serial is required",
+    })
+  }
+})
+
 export type GadgetFormValues = z.infer<typeof gadgetFormSchema>
 
 export type GadgetFormSubmission = GadgetFormValues & {
@@ -51,7 +72,7 @@ export type GadgetFormSubmission = GadgetFormValues & {
   productModelName: string
 }
 
-export const GadgetSchema = gadgetFormSchema.extend({
+export const GadgetSchema = gadgetFormBaseSchema.extend({
   id: z.string(),
 })
 

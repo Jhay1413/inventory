@@ -14,9 +14,11 @@ export const ProductAvailability = {
 export const ProductSchema = z.object({
   id: z.string(),
   productModelId: z.string(),
+  branchId: z.string().nullable().optional(),
   color: z.string(),
   ram: z.number().int(),
-  imei: z.string().regex(/^\d{15}$/),
+  storage: z.number().int(),
+  imei: z.string().trim().min(1).max(15),
   condition: z.enum([ProductCondition.BRAND_NEW, ProductCondition.SECOND_HAND] as const),
   availability: z.enum([ProductAvailability.AVAILABLE, ProductAvailability.SOLD] as const),
   status: z.string(),
@@ -44,6 +46,7 @@ export type ProductWithRelations = z.infer<typeof ProductWithRelationsSchema>
 export const ProductListQuerySchema = z.object({
   limit: z.coerce.number().int().positive().max(100).default(50),
   offset: z.coerce.number().int().min(0).default(0),
+  branchId: z.string().min(1).optional(),
   search: z
     .string()
     .trim()
@@ -83,11 +86,34 @@ export const CreateProductSchema = z.object({
   productModelId: z.string().min(1, "Product model is required"),
   color: z.string().min(1, "Color is required"),
   ram: z.number().int().min(1, "RAM must be a number"),
-  imei: z.string().regex(/^\d{15}$/, { message: "IMEI must be exactly 15 digits" }),
+  storage: z.number().int().min(0, "Storage must be a number").optional(),
+  imei: z
+    .preprocess(
+      (v) => (typeof v === "string" ? v.trim() : v),
+      z.string().max(15, { message: "IMEI/Serial must be at most 15 characters" }).optional()
+    )
+    .optional(),
+  autoGenerateImei: z.boolean().optional(),
   condition: z.enum([ProductCondition.BRAND_NEW, ProductCondition.SECOND_HAND] as const),
   availability: z.enum([ProductAvailability.AVAILABLE, ProductAvailability.SOLD] as const),
   status: z.string().min(1, "Status is required"),
 })
+  .superRefine((v, ctx) => {
+    const hasImei = typeof v.imei === "string" && v.imei.trim().length > 0
+    const wantsAuto = v.autoGenerateImei === true
+
+    if (!hasImei && !wantsAuto) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["imei"],
+        message: "IMEI/Serial is required",
+      })
+    }
+  })
+  .transform((v) => ({
+    ...v,
+    imei: typeof v.imei === "string" && v.imei.trim().length > 0 ? v.imei.trim() : undefined,
+  }))
 
 export type CreateProductInput = z.infer<typeof CreateProductSchema>
 
@@ -96,7 +122,11 @@ export const UpdateProductSchema = z
     productModelId: z.string().min(1).optional(),
     color: z.string().min(1).optional(),
     ram: z.number().int().min(1).optional(),
-    imei: z.string().regex(/^\d{15}$/).optional(),
+    storage: z.number().int().min(0).optional(),
+    imei: z.preprocess(
+      (v) => (typeof v === "string" ? v.trim() : v),
+      z.string().min(1).max(15, { message: "IMEI/Serial must be at most 15 characters" })
+    ).optional(),
     condition: z.enum([ProductCondition.BRAND_NEW, ProductCondition.SECOND_HAND] as const).optional(),
     availability: z
       .enum([ProductAvailability.AVAILABLE, ProductAvailability.SOLD] as const)

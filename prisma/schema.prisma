@@ -23,6 +23,34 @@ enum ProductAvailability {
   Sold
 }
 
+enum InvoicePaymentType {
+  Cash
+  Credit
+  Installment
+}
+
+enum InvoiceStatus {
+  Pending
+  PartiallyPaid
+  Paid
+  Cancelled
+}
+
+enum TransferStatus {
+  Pending
+  Approved
+  Rejected
+  Cancelled
+  Completed
+}
+
+enum ProductAuditAction {
+  ProductCreated
+  TransferRequested
+  TransferReceived
+  Sold
+}
+
 model User {
   id            String    @id
   name          String
@@ -33,6 +61,21 @@ model User {
   updatedAt     DateTime  @updatedAt
   sessions      Session[]
   accounts      Account[]
+
+  members     Member[]
+  invitations Invitation[]
+
+  role       String?
+  banned     Boolean?  @default(false)
+  banReason  String?
+  banExpires DateTime?
+
+  transfersRequested Transfer[] @relation("TransferRequestedBy")
+  transfersReceived  Transfer[] @relation("TransferReceivedBy")
+
+  invoicesCreated Invoice[] @relation("InvoiceCreatedBy")
+
+  productAuditLogs ProductAuditLog[]
 
   @@unique([email])
   @@map("user")
@@ -48,6 +91,10 @@ model Session {
   userAgent String?
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  activeOrganizationId String?
+
+  impersonatedBy String?
 
   @@unique([token])
   @@index([userId])
@@ -105,7 +152,7 @@ model ProductModel {
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
 
-  products      Product[]
+  products Product[]
 
   @@unique([productTypeId, name])
   @@index([productTypeId])
@@ -115,8 +162,10 @@ model ProductModel {
 model Product {
   id             String              @id @default(cuid())
   productModelId String
+  branchId       String?
   color          String
   ram            Int                 @default(0)
+  storage        Int                 @default(0)
   imei           String              @unique @db.VarChar(15)
   condition      ProductCondition
   availability   ProductAvailability
@@ -124,8 +173,181 @@ model Product {
   createdAt      DateTime            @default(now())
   updatedAt      DateTime            @updatedAt
 
-  productModel   ProductModel        @relation(fields: [productModelId], references: [id], onDelete: Restrict)
+  productModel ProductModel @relation(fields: [productModelId], references: [id], onDelete: Restrict)
+  branch       Organization? @relation(fields: [branchId], references: [id], onDelete: SetNull)
+
+  transfers Transfer[]
+  invoice   Invoice?
+  invoiceItems InvoiceItem[]
+
+  auditLogs ProductAuditLog[]
 
   @@index([productModelId])
+  @@index([branchId])
   @@map("product")
+}
+
+model ProductAuditLog {
+  id String @id @default(cuid())
+
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  action ProductAuditAction
+
+  actorUserId String
+  actorUser   User @relation(fields: [actorUserId], references: [id], onDelete: Restrict)
+
+  actorOrganizationId String?
+  actorOrganization   Organization? @relation(fields: [actorOrganizationId], references: [id], onDelete: SetNull)
+
+  fromBranchId String?
+  toBranchId   String?
+
+  transferId String?
+  transfer   Transfer? @relation(fields: [transferId], references: [id], onDelete: SetNull)
+
+  invoiceId String?
+  invoice   Invoice? @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+
+  details Json?
+
+  createdAt DateTime @default(now())
+
+  @@index([productId, createdAt])
+  @@index([actorUserId, createdAt])
+  @@index([actorOrganizationId, createdAt])
+  @@map("product_audit_log")
+}
+
+model Organization {
+  id          String       @id
+  name        String
+  slug        String
+  logo        String?
+  createdAt   DateTime
+  metadata    String?
+  members     Member[]
+  invitations Invitation[]
+  products    Product[]
+
+  productAuditLogs ProductAuditLog[]
+
+  transfersFrom Transfer[] @relation("TransferFromBranch")
+  transfersTo   Transfer[] @relation("TransferToBranch")
+
+  invoices Invoice[]
+
+  @@unique([slug])
+  @@map("organization")
+}
+
+model Invoice {
+  id          String             @id @default(cuid())
+  productId   String             @unique
+  branchId    String
+  createdById String
+  salePrice   Int
+  paymentType InvoicePaymentType
+  status      InvoiceStatus      @default(Pending)
+  customerName  String?
+  customerPhone String?
+  notes       String?
+  paidAt      DateTime?
+  cancelledAt DateTime?
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  product   Product       @relation(fields: [productId], references: [id], onDelete: Restrict)
+  branch    Organization  @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  createdBy User          @relation("InvoiceCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+
+  items InvoiceItem[]
+
+  productAuditLogs ProductAuditLog[]
+
+  @@index([branchId])
+  @@index([createdById])
+  @@index([status])
+  @@index([createdAt])
+  @@map("invoice")
+}
+
+model InvoiceItem {
+  id        String   @id @default(cuid())
+  invoiceId String
+  productId String   @unique
+  unitPrice Int      @default(0)
+  discountAmount Int @default(0)
+  netAmount  Int     @default(0)
+  isFreebie  Boolean @default(false)
+  createdAt  DateTime @default(now())
+
+  invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@index([invoiceId])
+  @@index([productId])
+  @@map("invoice_item")
+}
+
+model Transfer {
+  id            String         @id @default(cuid())
+  productId     String
+  fromBranchId  String
+  toBranchId    String
+  requestedById String
+  receivedById  String?
+  reason        String
+  notes         String?
+  status        TransferStatus @default(Pending)
+  receivedAt    DateTime?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  product     Product       @relation(fields: [productId], references: [id], onDelete: Restrict)
+  fromBranch  Organization  @relation("TransferFromBranch", fields: [fromBranchId], references: [id], onDelete: Restrict)
+  toBranch    Organization  @relation("TransferToBranch", fields: [toBranchId], references: [id], onDelete: Restrict)
+  requestedBy User          @relation("TransferRequestedBy", fields: [requestedById], references: [id], onDelete: Restrict)
+  receivedBy  User?         @relation("TransferReceivedBy", fields: [receivedById], references: [id], onDelete: SetNull)
+
+  productAuditLogs ProductAuditLog[]
+
+  @@index([productId])
+  @@index([fromBranchId])
+  @@index([toBranchId])
+  @@index([requestedById])
+  @@index([receivedById])
+  @@map("transfer")
+}
+
+model Member {
+  id             String       @id
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role           String       @default("member")
+  createdAt      DateTime
+
+  @@index([organizationId])
+  @@index([userId])
+  @@map("member")
+}
+
+model Invitation {
+  id             String       @id
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  email          String
+  role           String?
+  status         String       @default("pending")
+  expiresAt      DateTime
+  createdAt      DateTime     @default(now())
+  inviterId      String
+  user           User         @relation(fields: [inviterId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([email])
+  @@map("invitation")
 }

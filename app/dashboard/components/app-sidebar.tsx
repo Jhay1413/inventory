@@ -34,6 +34,7 @@ import { NavDocuments } from "./nav-documents"
 import { NavOperations } from "./nav-operations"
 import { NavSecondary } from "./nav-secondary"
 import { NavUser } from "./nav-user"
+import { useOrgContext } from "@/app/queries/org-context.queries"
 
 const data = {
     user: {
@@ -67,6 +68,11 @@ const data = {
             url: "/dashboard/branches",
             icon: IconBuildingStore,
         },
+        {
+            title: "User Management",
+            url: "/dashboard/users",
+            icon: IconUsers,
+        },
     ],
     navOperations: [
         {
@@ -75,6 +81,10 @@ const data = {
             isActive: true,
             url: "/dashboard/transfers",
             items: [
+                {
+                    title: "Incoming Transfers",
+                    url: "/dashboard/transfers/incoming",
+                },
                 {
                     title: "Pending Transfers",
                     url: "/dashboard/transfers/pending",
@@ -160,7 +170,64 @@ const data = {
     ],
 }
 
-export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+const nonAdminData = {
+    navMain: [
+        {
+            title: "Dashboard",
+            url: "/dashboard/branch",
+            icon: IconDashboard,
+        },
+        {
+            title: "Products",
+            url: "/dashboard/products",
+            icon: IconDeviceMobile,
+        },
+        {
+            title: "Inventory",
+            url: "/dashboard/inventory",
+            icon: IconBox,
+        },
+        {
+            title: "Sales",
+            url: "/dashboard/sales",
+            icon: IconCurrencyDollar,
+        },
+    ],
+    navOperations: [
+        {
+            title: "Transfers",
+            icon: IconTransfer,
+            isActive: true,
+            url: "/dashboard/transfers",
+            items: [
+                {
+                    title: "Incoming Transfers",
+                    url: "/dashboard/transfers/incoming",
+                },
+                {
+                    title: "Pending Transfers",
+                    url: "/dashboard/transfers/pending",
+                },
+                {
+                    title: "Transfer History",
+                    url: "/dashboard/transfers/history",
+                },
+                {
+                    title: "New Transfer",
+                    url: "/dashboard/transfers/new",
+                },
+            ],
+        },
+    ],
+}
+
+export function AppSidebar({ isAdminOrganization, ...props }: React.ComponentProps<typeof Sidebar> & { isAdminOrganization?: boolean }) {
+    const org = useOrgContext(isAdminOrganization === undefined)
+    const resolvedIsAdmin = isAdminOrganization ?? org.data?.isAdminOrganization ?? false
+
+    const navMain = resolvedIsAdmin ? data.navMain : nonAdminData.navMain
+    const navOperations = resolvedIsAdmin ? data.navOperations : nonAdminData.navOperations
+
     return (
         <Sidebar collapsible="offcanvas" {...props}>
             <SidebarHeader>
@@ -179,10 +246,14 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 </SidebarMenu>
             </SidebarHeader>
             <SidebarContent>
-                <NavMain items={data.navMain} />
-                <NavOperations items={data.navOperations} />
-                <NavDocuments items={data.documents} />
-                <NavSecondary items={data.navSecondary} className="mt-auto" />
+                <NavMain items={navMain} />
+                <NavOperations items={navOperations} />
+                {resolvedIsAdmin ? (
+                    <>
+                        <NavDocuments items={data.documents} />
+                        <NavSecondary items={data.navSecondary} className="mt-auto" />
+                    </>
+                ) : null}
             </SidebarContent>
             <SidebarFooter>
                 <NavUser user={data.user} />

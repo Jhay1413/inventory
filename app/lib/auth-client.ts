@@ -1,9 +1,19 @@
-import { createAuthClient } from "better-auth/client"
-import { inferAdditionalFields } from "better-auth/client/plugins"
-import { auth } from "./auth"
-const authClient = createAuthClient(
+import { createAuthClient } from "better-auth/react"
+import { adminClient, inferAdditionalFields, organizationClient } from "better-auth/client/plugins"
+import { ac, admin } from "./permission"
+
+export const authClient = createAuthClient(
     {
-        plugins: [inferAdditionalFields<typeof auth>()],
+        plugins: [inferAdditionalFields<typeof import("./auth").auth>(),
+        organizationClient(),
+        adminClient({
+            ac,
+            roles: {
+                admin,
+               
+            }
+        })
+        ],
     }
 )
 export type Session = typeof authClient.$Infer.Session

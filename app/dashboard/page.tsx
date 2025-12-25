@@ -1,166 +1,139 @@
 "use client"
 
-import { ChartAreaInteractive } from "./components/chart-area-interactive";
-import { SectionCards } from "./components/section-cards";
+import { useEffect } from "react"
+import { useRouter } from "next/navigation"
+
+import { ChartAreaInteractive } from "./components/chart-area-interactive"
+import { SectionCards } from "./components/section-cards"
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
+    Card,
+    CardContent,
+    CardDescription,
+    CardHeader,
+    CardTitle,
 } from "@/components/ui/card"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
+import { useOrgContext } from "@/app/queries/org-context.queries"
+import { useAdminDashboardSummary } from "@/app/queries/dashboard.queries"
 
-export default function Page() {
-    // Recent activity data
-    const recentActivity = [
-        {
-            id: "TXN-001",
-            type: "Sale",
-            branch: "Tacloban",
-            product: "iPhone 15 Pro Max",
-            amount: 74999,
-            status: "Completed",
-            time: "2 mins ago"
-        },
-        {
-            id: "TXN-002",
-            type: "Transfer",
-            branch: "Catbalogan → Tacloban",
-            product: "Samsung Galaxy S24",
-            amount: 0,
-            status: "In Transit",
-            time: "15 mins ago"
-        },
-        {
-            id: "TXN-003",
-            type: "Sale",
-            branch: "Borongan E.Samar",
-            product: "MacBook Air M3",
-            amount: 69999,
-            status: "Completed",
-            time: "28 mins ago"
-        },
-        {
-            id: "TXN-004",
-            type: "Delivery",
-            branch: "Guiuan E.Samar",
-            product: "AirPods Pro 2 (3 units)",
-            amount: 44970,
-            status: "Delivered",
-            time: "1 hour ago"
-        },
-        {
-            id: "TXN-005",
-            type: "Sale",
-            branch: "Catbalogan",
-            product: "iPad Air M2",
-            amount: 39999,
-            status: "Completed",
-            time: "2 hours ago"
-        },
-    ]
+export default function DashboardPage() {
+    const router = useRouter()
+    const org = useOrgContext(true)
+    const summary = useAdminDashboardSummary(Boolean(org.data?.isAdminOrganization))
 
-    // Top selling products
-    const topProducts = [
-        { name: "iPhone 15 Pro Max", sales: 45, revenue: 3374955, growth: 15 },
-        { name: "Samsung Galaxy S24 Ultra", sales: 38, revenue: 2849962, growth: 12 },
-        { name: "MacBook Air M3", sales: 28, revenue: 1959972, growth: 8 },
-        { name: "iPad Air M2", sales: 32, revenue: 1279968, growth: -3 },
-        { name: "AirPods Pro 2", sales: 67, revenue: 1003933, growth: 22 },
-    ]
+    useEffect(() => {
+        if (org.isSuccess && !org.data.isAdminOrganization) {
+            router.replace("/dashboard/branch")
+        }
+    }, [org.isSuccess, org.data?.isAdminOrganization, router])
+
+    useEffect(() => {
+        if (org.isError) {
+            router.replace("/auth")
+        }
+    }, [org.isError, router])
+
+    if (org.isLoading || summary.isLoading || !org.data) {
+        return <div className="flex flex-1 flex-col gap-4 p-4 pt-0" />
+    }
+
+    if (org.isError) return null
+    if (!org.data.isAdminOrganization) return null
+    if (summary.isError || !summary.data) {
+        return (
+            <div className="flex flex-1 flex-col gap-4 p-4 pt-0">Failed to load dashboard</div>
+        )
+    }
+
+    const activity = summary.data.activity
+    const topProducts = summary.data.topProducts
+    const maxSales = Math.max(1, topProducts[0]?.sales ?? 1)
 
     return (
-        <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
-            <SectionCards />
-            <div className="px-4 lg:px-6">
-                <ChartAreaInteractive />
-            </div>
-            
-            <div className="grid gap-4 px-4 lg:px-6 md:grid-cols-2">
-                {/* Recent Activity */}
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Recent Activity</CardTitle>
-                        <CardDescription>Latest transactions across all branches</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="space-y-4">
-                            {recentActivity.map((activity) => (
-                                <div key={activity.id} className="flex items-center justify-between border-b pb-3 last:border-0">
-                                    <div className="space-y-1">
-                                        <div className="flex items-center gap-2">
-                                            <Badge variant="outline" className="text-xs">
-                                                {activity.type}
-                                            </Badge>
-                                            <span className="text-sm font-medium">{activity.product}</span>
-                                        </div>
-                                        <p className="text-xs text-muted-foreground">{activity.branch}</p>
-                                        <p className="text-xs text-muted-foreground">{activity.time}</p>
-                                    </div>
-                                    <div className="text-right space-y-1">
-                                        {activity.amount > 0 && (
-                                            <p className="text-sm font-semibold">₱{activity.amount.toLocaleString()}</p>
-                                        )}
-                                        <Badge
-                                            variant={activity.status === "Completed" || activity.status === "Delivered" ? "default" : "secondary"}
-                                            className={
-                                                activity.status === "Completed" || activity.status === "Delivered"
-                                                    ? "bg-green-600 hover:bg-green-700 text-xs"
-                                                    : "bg-blue-600 hover:bg-blue-700 text-xs"
-                                            }
-                                        >
-                                            {activity.status}
-                                        </Badge>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </CardContent>
-                </Card>
+        <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
+            <SectionCards {...summary.data.section} />
 
-                {/* Top Selling Products */}
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Top Selling Products</CardTitle>
-                        <CardDescription>Best performers this month</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="space-y-6">
-                            {topProducts.map((product, index) => (
-                                <div key={product.name} className="space-y-2">
-                                    <div className="flex items-center justify-between">
-                                        <div className="flex items-center gap-3">
-                                            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-sm font-bold">
-                                                {index + 1}
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
+                <div className="col-span-4">
+                    <ChartAreaInteractive
+                        title={summary.data.chart.title}
+                        descriptionDesktop={summary.data.chart.descriptionDesktop}
+                        descriptionMobile={summary.data.chart.descriptionMobile}
+                        series={summary.data.chart.series}
+                        data={summary.data.chart.data}
+                    />
+                </div>
+
+                <div className="col-span-3 space-y-4">
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Recent Activity</CardTitle>
+                            <CardDescription>Latest sales and transfers</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="space-y-4">
+                                {activity.map((a) => (
+                                    <div key={a.id} className="flex items-start justify-between gap-3">
+                                        <div>
+                                            <div className="flex items-center gap-2">
+                                                <p className="text-sm font-medium">{a.product}</p>
+                                                <Badge variant="outline" className="text-xs">
+                                                    {a.type}
+                                                </Badge>
                                             </div>
-                                            <div>
-                                                <p className="text-sm font-medium">{product.name}</p>
-                                                <p className="text-xs text-muted-foreground">{product.sales} units sold</p>
-                                            </div>
+                                            <p className="text-xs text-muted-foreground">{a.branch}</p>
+                                            <p className="text-xs text-muted-foreground">{a.time}</p>
                                         </div>
-                                        <div className="text-right">
-                                            <p className="text-sm font-semibold">₱{product.revenue.toLocaleString()}</p>
-                                            <p className={`text-xs ${product.growth >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                                {product.growth >= 0 ? '+' : ''}{product.growth}%
-                                            </p>
+
+                                        <div className="flex flex-col items-end gap-1">
+                                            {a.amount > 0 ? (
+                                                <p className="text-sm font-semibold">₱{a.amount.toLocaleString()}</p>
+                                            ) : null}
+                                            <Badge variant="secondary" className="text-xs">
+                                                {a.status}
+                                            </Badge>
                                         </div>
                                     </div>
-                                    <Progress value={(product.sales / 70) * 100} className="h-2" />
-                                </div>
-                            ))}
-                        </div>
-                    </CardContent>
-                </Card>
+                                ))}
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Top Selling Products</CardTitle>
+                            <CardDescription>Best performers this month</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="space-y-6">
+                                {topProducts.map((p, index) => (
+                                    <div key={p.name} className="space-y-2">
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-3">
+                                                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-sm font-bold">
+                                                    {index + 1}
+                                                </div>
+                                                <div>
+                                                    <p className="text-sm font-medium">{p.name}</p>
+                                                    <p className="text-xs text-muted-foreground">{p.sales} units sold</p>
+                                                </div>
+                                            </div>
+                                            <div className="text-right">
+                                                <p className="text-sm font-semibold">₱{p.revenue.toLocaleString()}</p>
+                                                <p className={`text-xs ${p.growth >= 0 ? "text-green-600" : "text-red-600"}`}>
+                                                    {p.growth >= 0 ? "+" : ""}
+                                                    {p.growth}%
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <Progress value={(p.sales / maxSales) * 100} className="h-2" />
+                                    </div>
+                                ))}
+                            </div>
+                        </CardContent>
+                    </Card>
+                </div>
             </div>
         </div>
     )

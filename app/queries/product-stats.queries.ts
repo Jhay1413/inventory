@@ -11,7 +11,8 @@ export function useProductStats() {
   return useQuery({
     queryKey: productStatsKeys.all,
     queryFn: () => productStatsService.get(),
-    staleTime: 1000 * 30,
+    staleTime: 0,
     gcTime: 1000 * 60 * 5,
+    refetchOnMount: "always",
   })
 }

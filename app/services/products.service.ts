@@ -10,6 +10,10 @@ import {
   type ProductsListResponse,
   type UpdateProductInput,
 } from "@/types/api/products"
+import {
+  ProductAuditLogsResponseSchema,
+  type ProductAuditLogsResponse,
+} from "@/types/api/product-audit"
 
 class ProductsService {
   private baseUrl = "/api/products"
@@ -27,6 +31,7 @@ class ProductsService {
     if (parsed.productModelId) params.append("productModelId", parsed.productModelId)
     if (parsed.condition) params.append("condition", parsed.condition)
     if (parsed.availability) params.append("availability", parsed.availability)
+    if (parsed.branchId) params.append("branchId", parsed.branchId)
 
     const res = await fetch(`${this.baseUrl}?${params.toString()}`, {
       method: "GET",
@@ -92,6 +97,21 @@ class ProductsService {
     const data = await res.json()
     // API returns { message: "Deleted" }
     return data as { message: string }
+  }
+
+  async auditLogs(productId: string): Promise<ProductAuditLogsResponse> {
+    const res = await fetch(`${this.baseUrl}/${productId}/audit`, {
+      method: "GET",
+      headers: { "Content-Type": "application/json" },
+    })
+
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({}))
+      throw new Error(errorData.error || "Failed to fetch audit logs")
+    }
+
+    const data = await res.json()
+    return ProductAuditLogsResponseSchema.parse(data)
   }
 }
 

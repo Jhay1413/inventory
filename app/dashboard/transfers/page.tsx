@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import Link from "next/link"
 import { IconArrowRight, IconBuildingStore, IconCalendar, IconClock, IconPlus, IconTruck } from "@tabler/icons-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -147,9 +148,11 @@ export default function TransfersPage() {
             Manage gadget transfers between branches
           </p>
         </div>
-        <Button>
+        <Button asChild>
+          <Link href="/dashboard/transfers/new">
           <IconPlus className="mr-2 h-4 w-4" />
           New Transfer
+          </Link>
         </Button>
       </div>
 

@@ -11,6 +11,8 @@ export const productKeys = {
   all: ["products"] as const,
   lists: () => [...productKeys.all, "list"] as const,
   list: (filters: ProductListQueryInput) => [...productKeys.lists(), filters] as const,
+  audits: () => [...productKeys.all, "audit"] as const,
+  audit: (productId: string) => [...productKeys.audits(), productId] as const,
 } as const
 
 export function useProducts(filters: ProductListQueryInput = {}, options?: { enabled?: boolean }) {
@@ -72,5 +74,15 @@ export function useDeleteProduct() {
     onError: (error: Error) => {
       toast.error(error.message || "Failed to delete product")
     },
+  })
+}
+
+export function useProductAuditLogs(productId: string, options?: { enabled?: boolean }) {
+  return useQuery({
+    queryKey: productKeys.audit(productId),
+    queryFn: () => productsService.auditLogs(productId),
+    enabled: options?.enabled ?? true,
+    staleTime: 1000 * 10,
+    gcTime: 1000 * 60 * 5,
   })
 }

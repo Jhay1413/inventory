@@ -5,6 +5,6 @@ export async function GET(req: NextRequest) {
   return handleListProducts(req)
 }
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   return handleCreateProduct(req)
 }
