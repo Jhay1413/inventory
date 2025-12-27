@@ -18,6 +18,21 @@ import {
 class ProductsService {
   private baseUrl = "/api/products"
 
+  async get(id: string): Promise<ProductResponse> {
+    const res = await fetch(`${this.baseUrl}/${id}`, {
+      method: "GET",
+      headers: { "Content-Type": "application/json" },
+    })
+
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({}))
+      throw new Error(errorData.error || "Failed to fetch product")
+    }
+
+    const data = await res.json()
+    return ProductResponseSchema.parse(data)
+  }
+
   async list(filters: ProductListQueryInput = {}): Promise<ProductsListResponse> {
     const parsed = ProductListQuerySchema.parse(filters)
 

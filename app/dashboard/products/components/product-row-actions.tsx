@@ -5,7 +5,7 @@ import Barcode from "react-barcode"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm, type Resolver } from "react-hook-form"
 import { toast } from "sonner"
-import { Barcode as BarcodeIcon, Eye, MoreHorizontal, Pencil, Trash2 } from "lucide-react"
+import { Barcode as BarcodeIcon, Check, Copy, Eye, MoreHorizontal, Pencil, Trash2 } from "lucide-react"
 import {
   Dialog,
   DialogContent,
@@ -49,7 +49,7 @@ import {
 } from "@/components/ui/select"
 import { useProductTypes } from "@/app/queries/product-types.queries"
 import { useProductModelsByProductType } from "@/app/queries/product-models.queries"
-import { useDeleteProduct, useProductAuditLogs, useUpdateProduct } from "@/app/queries/products.queries"
+import { useDeleteProduct, useProduct, useProductAuditLogs, useUpdateProduct } from "@/app/queries/products.queries"
 import {
   gadgetFormSchema,
   GadgetAvailability,
@@ -78,12 +78,25 @@ export function ProductRowActions({ product }: { product: ProductWithRelations }
   const [barcodeOpen, setBarcodeOpen] = React.useState(false)
   const [editOpen, setEditOpen] = React.useState(false)
   const [deleteOpen, setDeleteOpen] = React.useState(false)
+  const [copiedInvoiceId, setCopiedInvoiceId] = React.useState<string | null>(null)
+  const copiedInvoiceTimeoutRef = React.useRef<number | null>(null)
 
   const barcodeContainerRef = React.useRef<HTMLDivElement | null>(null)
+
+  React.useEffect(() => {
+    return () => {
+      if (copiedInvoiceTimeoutRef.current) {
+        window.clearTimeout(copiedInvoiceTimeoutRef.current)
+      }
+    }
+  }, [])
 
   const updateProduct = useUpdateProduct()
   const deleteProduct = useDeleteProduct()
   const auditLogs = useProductAuditLogs(product.id, { enabled: viewOpen })
+  const productDetails = useProduct(product.id, { enabled: viewOpen })
+
+  const productForView = productDetails.data?.product ?? product
 
   const { data: productTypesData, isLoading: productTypesLoading } = useProductTypes()
 
@@ -110,6 +123,24 @@ export function ProductRowActions({ product }: { product: ProductWithRelations }
     try {
       await navigator.clipboard.writeText(product.imei)
       toast.success("Copied")
+    } catch {
+      toast.error("Failed to copy")
+    }
+  }
+
+  async function copyInvoiceId(invoiceId: string) {
+    try {
+      await navigator.clipboard.writeText(invoiceId)
+      toast.success("Invoice ID copied")
+      setCopiedInvoiceId(invoiceId)
+
+      if (copiedInvoiceTimeoutRef.current) {
+        window.clearTimeout(copiedInvoiceTimeoutRef.current)
+      }
+
+      copiedInvoiceTimeoutRef.current = window.setTimeout(() => {
+        setCopiedInvoiceId(null)
+      }, 1500)
     } catch {
       toast.error("Failed to copy")
     }
@@ -265,41 +296,79 @@ export function ProductRowActions({ product }: { product: ProductWithRelations }
 
           <div className="rounded-md border p-4">
             <div className="grid gap-3 text-sm md:grid-cols-2">
-              <div className="flex justify-between gap-4">
-                <span className="text-muted-foreground">Type</span>
-                <span className="font-medium">{product.productModel.productType.name}</span>
+              <div className="flex items-center gap-2">
+                <span className="text-muted-foreground">Type:</span>
+                <span className="font-medium">{productForView.productModel.productType.name}</span>
               </div>
-              <div className="flex justify-between gap-4">
-                <span className="text-muted-foreground">Model</span>
-                <span className="font-medium">{product.productModel.name}</span>
+              <div className="flex items-center gap-2">
+                <span className="text-muted-foreground">Model:</span>
+                <span className="font-medium">{productForView.productModel.name}</span>
               </div>
-              <div className="flex justify-between gap-4">
-                <span className="text-muted-foreground">Color</span>
-                <span className="font-medium">{product.color}</span>
+              <div className="flex items-center gap-2">
+                <span className="text-muted-foreground">Color:</span>
+                <span className="font-medium">{productForView.color}</span>
               </div>
-              <div className="flex justify-between gap-4">
-                <span className="text-muted-foreground">RAM</span>
-                <span className="font-medium">{product.ram}</span>
+              <div className="flex items-center gap-2">
+                <span className="text-muted-foreground">RAM:</span>
+                <span className="font-medium">{productForView.ram}</span>
               </div>
-              <div className="flex justify-between gap-4">
-                <span className="text-muted-foreground">Storage</span>
-                <span className="font-medium">{product.storage}</span>
+              <div className="flex items-center gap-2">
+                <span className="text-muted-foreground">Storage:</span>
+                <span className="font-medium">{productForView.storage}</span>
               </div>
-              <div className="flex justify-between gap-4">
-                <span className="text-muted-foreground">IMEI</span>
-                <span className="font-mono text-xs">{product.imei}</span>
+              <div className="flex items-center gap-2">
+                <span className="text-muted-foreground">IMEI:</span>
+                <span className="font-mono text-xs">{productForView.imei}</span>
               </div>
-              <div className="flex justify-between gap-4">
-                <span className="text-muted-foreground">Condition</span>
-                <span className="font-medium">{product.condition}</span>
+              <div className="flex items-center gap-2">
+                <span className="text-muted-foreground">Condition:</span>
+                <span className="font-medium">{productForView.condition}</span>
               </div>
-              <div className="flex justify-between gap-4">
-                <span className="text-muted-foreground">Availability</span>
-                <span className="font-medium">{product.availability}</span>
+              <div className="flex items-center gap-2">
+                <span className="text-muted-foreground">Availability:</span>
+                <span className="font-medium">{productForView.availability}</span>
               </div>
-              <div className="flex justify-between gap-4 md:col-span-2">
-                <span className="text-muted-foreground">Status</span>
-                <span className="font-medium text-right">{product.status}</span>
+              {productForView.availability === "Sold" ? (
+                <div className="flex items-center gap-2">
+                  <span className="text-muted-foreground">Invoice ID:</span>
+                  {productDetails.isLoading ? (
+                    <span className="font-mono text-xs">Loading…</span>
+                  ) : productForView.soldInvoiceId ? (
+                    <span className="inline-flex items-center gap-1">
+                      <span className="font-mono text-xs">{productForView.soldInvoiceId}</span>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6"
+                        onClick={() => copyInvoiceId(productForView.soldInvoiceId!)}
+                        aria-label={
+                          copiedInvoiceId === productForView.soldInvoiceId
+                            ? "Invoice id copied"
+                            : "Copy invoice id"
+                        }
+                      >
+                        {copiedInvoiceId === productForView.soldInvoiceId ? (
+                          <Check className="h-3.5 w-3.5" />
+                        ) : (
+                          <Copy className="h-3.5 w-3.5" />
+                        )}
+                      </Button>
+                    </span>
+                  ) : (
+                    <span className="font-mono text-xs">—</span>
+                  )}
+                </div>
+              ) : null}
+              {productForView.soldAsFreebie ? (
+                <div className="flex items-center gap-2">
+                  <span className="text-muted-foreground">Sold as freebies:</span>
+                  <span className="font-medium">Yes</span>
+                </div>
+              ) : null}
+              <div className="flex items-center gap-2 md:col-span-2">
+                <span className="text-muted-foreground">Status:</span>
+                <span className="font-medium">{productForView.status}</span>
               </div>
             </div>
           </div>

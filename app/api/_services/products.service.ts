@@ -94,3 +94,25 @@ export async function updateProduct(id: string, input: Record<string, unknown>) 
 export async function deleteProduct(id: string) {
   return dal.deleteProduct(id)
 }
+
+export async function getProduct(id: string) {
+  const found = await dal.getProductById(id)
+  if (!found) {
+    throw new Error("Product not found")
+  }
+
+  const invoiceIdFromInvoice = found.invoice?.id ?? null
+  const invoiceItem = found.invoiceItems?.[0]
+  const invoiceIdFromItem = invoiceItem?.invoiceId ?? null
+
+  const soldInvoiceId = invoiceIdFromInvoice ?? invoiceIdFromItem
+  const soldAsFreebie = invoiceItem?.isFreebie === true
+
+  const { invoice: _invoice, invoiceItems: _invoiceItems, ...product } = found
+
+  return {
+    ...product,
+    soldInvoiceId,
+    soldAsFreebie,
+  }
+}

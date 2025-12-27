@@ -127,6 +127,31 @@ export async function listProducts(args: { limit: number; offset: number } & Pro
   })
 }
 
+export async function getProductById(id: string) {
+  return prisma.product.findUnique({
+    where: { id },
+    include: {
+      productModel: {
+        include: {
+          productType: true,
+        },
+      },
+      invoice: {
+        select: {
+          id: true,
+        },
+      },
+      invoiceItems: {
+        select: {
+          invoiceId: true,
+          isFreebie: true,
+        },
+        take: 1,
+      },
+    },
+  })
+}
+
 export async function updateProduct(id: string, data: Record<string, unknown>) {
   return prisma.product.update({
     where: { id },

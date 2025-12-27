@@ -1,5 +1,6 @@
 import { prisma } from "@/app/lib/db"
 import { createProductAuditLog } from "@/app/api/_dal/product-audit.dal"
+import type { Prisma } from "@/app/generated/prisma/client"
 
 const invoiceInclude = {
   product: {
@@ -187,33 +188,48 @@ export async function listInvoices(args: {
   productTypeId?: string
   condition?: "BrandNew" | "SecondHand"
 }) {
-  const where = {
-    ...(args.branchId ? { branchId: args.branchId } : {}),
-    ...(args.status ? { status: args.status } : {}),
-    ...(args.paymentType ? { paymentType: args.paymentType } : {}),
-    product: {
-      ...(args.condition ? { condition: args.condition } : {}),
-      ...(args.productTypeId
-        ? {
-            productModel: {
-              productTypeId: args.productTypeId,
-            },
-          }
-        : {}),
-      ...(args.search
-        ? {
-            OR: [
-              { imei: { contains: args.search } },
-              {
-                productModel: {
-                  name: { contains: args.search, mode: "insensitive" as const },
-                },
+  const where: Prisma.InvoiceWhereInput = {}
+
+  if (args.branchId) where.branchId = args.branchId
+  if (args.status) where.status = args.status
+  if (args.paymentType) where.paymentType = args.paymentType
+
+  const productWhere: Prisma.ProductWhereInput = {}
+
+  if (args.condition) {
+    productWhere.condition = args.condition
+  }
+
+  if (args.productTypeId) {
+    productWhere.productModel = { productTypeId: args.productTypeId }
+  }
+
+  if (Object.keys(productWhere).length > 0) {
+    where.product = productWhere
+  }
+
+  if (args.search) {
+    where.OR = [
+      // Allow searching by invoice id
+      { id: { contains: args.search } },
+      // Optional: also match customer fields
+      { customerName: { contains: args.search, mode: "insensitive" } },
+      { customerPhone: { contains: args.search } },
+      // Existing search behavior: product imei / model
+      {
+        product: {
+          OR: [
+            { imei: { contains: args.search } },
+            {
+              productModel: {
+                name: { contains: args.search, mode: "insensitive" },
               },
-            ],
-          }
-        : {}),
-    },
-  } as const
+            },
+          ],
+        },
+      },
+    ]
+  }
 
   const [total, invoices] = await prisma.$transaction([
     prisma.invoice.count({ where }),

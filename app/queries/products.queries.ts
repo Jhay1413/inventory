@@ -9,11 +9,23 @@ import { inventoryKeys } from "@/app/queries/inventory.queries"
 
 export const productKeys = {
   all: ["products"] as const,
+  details: () => [...productKeys.all, "detail"] as const,
+  detail: (productId: string) => [...productKeys.details(), productId] as const,
   lists: () => [...productKeys.all, "list"] as const,
   list: (filters: ProductListQueryInput) => [...productKeys.lists(), filters] as const,
   audits: () => [...productKeys.all, "audit"] as const,
   audit: (productId: string) => [...productKeys.audits(), productId] as const,
 } as const
+
+export function useProduct(productId: string, options?: { enabled?: boolean }) {
+  return useQuery({
+    queryKey: productKeys.detail(productId),
+    queryFn: () => productsService.get(productId),
+    enabled: options?.enabled ?? true,
+    staleTime: 1000 * 10,
+    gcTime: 1000 * 60 * 5,
+  })
+}
 
 export function useProducts(filters: ProductListQueryInput = {}, options?: { enabled?: boolean }) {
   return useQuery({

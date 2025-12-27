@@ -39,6 +39,8 @@ export const ProductModelWithTypeSchema = z.object({
 
 export const ProductWithRelationsSchema = ProductSchema.extend({
   productModel: ProductModelWithTypeSchema,
+  soldInvoiceId: z.string().nullable().optional(),
+  soldAsFreebie: z.boolean().optional(),
 })
 
 export type ProductWithRelations = z.infer<typeof ProductWithRelationsSchema>

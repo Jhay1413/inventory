@@ -93,6 +93,22 @@ export async function handleUpdateProduct(req: NextRequest, id: string) {
   }
 }
 
+export async function handleGetProduct(req: NextRequest, id: string) {
+  try {
+    const { activeOrganizationId } = await getActiveOrgContext(req)
+    if (!activeOrganizationId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    const product = await service.getProduct(id)
+    return NextResponse.json({ product })
+  } catch (e) {
+    const message = e instanceof Error ? e.message : "Failed to fetch product"
+    const status = message === "Product not found" ? 404 : 400
+    return NextResponse.json({ error: message }, { status })
+  }
+}
+
 export async function handleDeleteProduct(id: string) {
   try {
     await service.deleteProduct(id)

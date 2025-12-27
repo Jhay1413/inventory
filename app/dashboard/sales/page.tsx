@@ -48,8 +48,14 @@ export default function SalesPage() {
 
   const { data: activeOrganization } = authClient.useActiveOrganization()
 
+  const activeOrganizationMetadata = React.useMemo(() => {
+    if (!activeOrganization || typeof activeOrganization !== "object") return undefined
+    if (!("metadata" in activeOrganization)) return undefined
+    return (activeOrganization as { metadata?: unknown }).metadata
+  }, [activeOrganization])
+
   const isAdminOrganization = React.useMemo(() => {
-    const raw = (activeOrganization as any)?.metadata
+    const raw = activeOrganizationMetadata
     if (!raw) return false
     try {
       const parsed = typeof raw === "string" ? JSON.parse(raw) : raw
@@ -57,7 +63,7 @@ export default function SalesPage() {
     } catch {
       return false
     }
-  }, [activeOrganization])
+  }, [activeOrganizationMetadata])
 
   const { data: orgData, isLoading: orgsLoading } = useOrganizations({
     enabled: isAdminOrganization,
@@ -160,7 +166,7 @@ export default function SalesPage() {
         <CardContent>
           <div className={`grid gap-4 ${isAdminOrganization ? "md:grid-cols-4" : "md:grid-cols-3"}`}>
             <Input
-              placeholder="Search by model or IMEI..."
+              placeholder="Search by invoice ID, model, or IMEI..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
