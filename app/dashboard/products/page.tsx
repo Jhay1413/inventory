@@ -45,6 +45,9 @@ export default function ProductsPage() {
   const [availabilityFilter, setAvailabilityFilter] = React.useState<"all" | "Available" | "Sold">(
     "all"
   )
+    const [defectiveFilter, setDefectiveFilter] = React.useState<
+    "all" | "defective" | "notDefective"
+  >("all")
 
   const { data: activeOrganization } = authClient.useActiveOrganization()
 
@@ -74,8 +77,10 @@ export default function ProductsPage() {
       productTypeId: typeFilter === "all" ? undefined : typeFilter,
       condition: conditionFilter === "all" ? undefined : conditionFilter,
       availability: availabilityFilter === "all" ? undefined : availabilityFilter,
+      isDefective:
+        defectiveFilter === "all" ? undefined : defectiveFilter === "defective" ? true : false,
     }),
-    [availabilityFilter, conditionFilter, searchQuery, typeFilter]
+    [availabilityFilter, conditionFilter, defectiveFilter, searchQuery, typeFilter]
   )
 
   const { data: productsData, isLoading: productsLoading } = useProducts(listFilters)
@@ -95,6 +100,8 @@ export default function ProductsPage() {
       autoGenerateImei: newGadget.autoGenerateImei,
       condition: newGadget.condition,
       availability: newGadget.availability,
+      isDefective: newGadget.isDefective,
+      defectNotes: newGadget.defectNotes,
       status: newGadget.status,
     })
   }
@@ -104,7 +111,6 @@ export default function ProductsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Products</h1>
           <p className="text-muted-foreground">
             Manage your gadget inventory across all branches
           </p>
@@ -122,7 +128,7 @@ export default function ProductsPage() {
           <CardDescription>Filter gadgets by various criteria</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid gap-4 md:grid-cols-4">
+          <div className="grid gap-3 md:grid-cols-5">
             <div className="relative">
               <IconSearch className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
@@ -134,13 +140,13 @@ export default function ProductsPage() {
             </div>
 
             <Select value={typeFilter} onValueChange={setTypeFilter}>
-              <SelectTrigger>
+              <SelectTrigger className="w-full">
                 <SelectValue placeholder="Type" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Types</SelectItem>
                 {(productTypesData?.productTypes ?? []).map((t) => (
-                    <SelectItem key={t.id} value={t.id}>
+                  <SelectItem key={t.id} value={t.id}>
                     {t.name}
                   </SelectItem>
                 ))}
@@ -148,10 +154,24 @@ export default function ProductsPage() {
             </Select>
 
             <Select
+              value={defectiveFilter}
+              onValueChange={(v) => setDefectiveFilter(v as typeof defectiveFilter)}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Defective" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All</SelectItem>
+                <SelectItem value="defective">Defective</SelectItem>
+                <SelectItem value="notDefective">Not Defective</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Select
               value={conditionFilter}
               onValueChange={(v) => setConditionFilter(v as "all" | "BrandNew" | "SecondHand")}
             >
-              <SelectTrigger>
+              <SelectTrigger className="w-full">
                 <SelectValue placeholder="Condition" />
               </SelectTrigger>
               <SelectContent>
@@ -165,11 +185,11 @@ export default function ProductsPage() {
               value={availabilityFilter}
               onValueChange={(v) => setAvailabilityFilter(v as "all" | "Available" | "Sold")}
             >
-              <SelectTrigger>
+              <SelectTrigger className="w-full">
                 <SelectValue placeholder="Availability" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="all">All Availability</SelectItem>
                 <SelectItem value="Available">Available</SelectItem>
                 <SelectItem value="Sold">Sold</SelectItem>
               </SelectContent>
@@ -192,6 +212,7 @@ export default function ProductsPage() {
               <TableRow>
                 <TableHead>Type</TableHead>
                 <TableHead>Model</TableHead>
+                <TableHead>Branch</TableHead>
                 <TableHead>RAM</TableHead>
                 <TableHead>Storage</TableHead>
                 <TableHead>IMEI</TableHead>
@@ -213,6 +234,12 @@ export default function ProductsPage() {
                     <div className="text-xs text-muted-foreground">{product.color}</div>
                   </TableCell>
                   <TableCell>
+                    <div className="font-medium">{product.branch?.name ?? "—"}</div>
+                    {product.branch?.slug ? (
+                      <div className="text-xs text-muted-foreground">{product.branch.slug}</div>
+                    ) : null}
+                  </TableCell>
+                  <TableCell>
                     <div className="font-medium">{product.ram}</div>
                   </TableCell>
                   <TableCell>
@@ -220,16 +247,20 @@ export default function ProductsPage() {
                   </TableCell>
                   <TableCell className="font-mono text-xs">{product.imei}</TableCell>
                   <TableCell>
-                    <Badge
-                      variant={product.condition === "BrandNew" ? "default" : "outline"}
-                      className={
-                        product.condition === "BrandNew"
-                          ? "bg-blue-100 text-blue-800 hover:bg-blue-100"
-                          : ""
-                      }
-                    >
-                      {product.condition === "BrandNew" ? "Brand New" : "Second Hand"}
-                    </Badge>
+                    {product.isDefective ? (
+                      <Badge variant="destructive">Defective</Badge>
+                    ) : (
+                      <Badge
+                        variant={product.condition === "BrandNew" ? "default" : "outline"}
+                        className={
+                          product.condition === "BrandNew"
+                            ? "bg-blue-100 text-blue-800 hover:bg-blue-100"
+                            : ""
+                        }
+                      >
+                        {product.condition === "BrandNew" ? "Brand New" : "Second Hand"}
+                      </Badge>
+                    )}
                   </TableCell>
                   <TableCell>
                     <Badge

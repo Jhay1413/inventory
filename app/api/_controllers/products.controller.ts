@@ -17,6 +17,7 @@ export async function handleListProducts(req: NextRequest) {
     productModelId: req.nextUrl.searchParams.get("productModelId") ?? undefined,
     condition: req.nextUrl.searchParams.get("condition") ?? undefined,
     availability: req.nextUrl.searchParams.get("availability") ?? undefined,
+    isDefective: req.nextUrl.searchParams.get("isDefective") ?? undefined,
   })
 
   if (!parsedQuery.success) {

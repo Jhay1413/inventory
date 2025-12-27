@@ -1,5 +1,6 @@
 import { z } from "zod"
 import { ProductTypeSchema } from "@/types/api/product-types"
+import { OrganizationSchema } from "@/types/api/organizations"
 
 export const ProductCondition = {
   BRAND_NEW: "BrandNew",
@@ -21,6 +22,8 @@ export const ProductSchema = z.object({
   imei: z.string().trim().min(1).max(15),
   condition: z.enum([ProductCondition.BRAND_NEW, ProductCondition.SECOND_HAND] as const),
   availability: z.enum([ProductAvailability.AVAILABLE, ProductAvailability.SOLD] as const),
+  isDefective: z.boolean(),
+  defectNotes: z.string().nullable().optional(),
   status: z.string(),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
@@ -39,6 +42,7 @@ export const ProductModelWithTypeSchema = z.object({
 
 export const ProductWithRelationsSchema = ProductSchema.extend({
   productModel: ProductModelWithTypeSchema,
+  branch: OrganizationSchema.nullable().optional(),
   soldInvoiceId: z.string().nullable().optional(),
   soldAsFreebie: z.boolean().optional(),
 })
@@ -59,6 +63,13 @@ export const ProductListQuerySchema = z.object({
   productModelId: z.string().min(1).optional(),
   condition: z.enum([ProductCondition.BRAND_NEW, ProductCondition.SECOND_HAND] as const).optional(),
   availability: z.enum([ProductAvailability.AVAILABLE, ProductAvailability.SOLD] as const).optional(),
+  isDefective: z
+    .preprocess((v) => {
+      if (v === "true") return true
+      if (v === "false") return false
+      return v
+    }, z.boolean())
+    .optional(),
 })
 
 export type ProductListQueryInput = z.input<typeof ProductListQuerySchema>
@@ -98,11 +109,29 @@ export const CreateProductSchema = z.object({
   autoGenerateImei: z.boolean().optional(),
   condition: z.enum([ProductCondition.BRAND_NEW, ProductCondition.SECOND_HAND] as const),
   availability: z.enum([ProductAvailability.AVAILABLE, ProductAvailability.SOLD] as const),
+  isDefective: z.boolean().optional(),
+  defectNotes: z
+    .preprocess(
+      (v) => (typeof v === "string" ? v.trim() : v),
+      z.string().max(200, { message: "Defect notes must be at most 200 characters" }).optional()
+    )
+    .optional(),
   status: z.string().min(1, "Status is required"),
 })
   .superRefine((v, ctx) => {
     const hasImei = typeof v.imei === "string" && v.imei.trim().length > 0
     const wantsAuto = v.autoGenerateImei === true
+
+    const isDefective = v.isDefective === true
+    const hasDefectNotes = typeof v.defectNotes === "string" && v.defectNotes.trim().length > 0
+
+    if (isDefective && !hasDefectNotes) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["defectNotes"],
+        message: "Please add defect details",
+      })
+    }
 
     if (!hasImei && !wantsAuto) {
       ctx.addIssue({
@@ -115,6 +144,10 @@ export const CreateProductSchema = z.object({
   .transform((v) => ({
     ...v,
     imei: typeof v.imei === "string" && v.imei.trim().length > 0 ? v.imei.trim() : undefined,
+    defectNotes:
+      typeof v.defectNotes === "string" && v.defectNotes.trim().length > 0
+        ? v.defectNotes.trim()
+        : undefined,
   }))
 
 export type CreateProductInput = z.infer<typeof CreateProductSchema>
@@ -133,7 +166,26 @@ export const UpdateProductSchema = z
     availability: z
       .enum([ProductAvailability.AVAILABLE, ProductAvailability.SOLD] as const)
       .optional(),
+    isDefective: z.boolean().optional(),
+    defectNotes: z
+      .preprocess(
+        (v) => (typeof v === "string" ? v.trim() : v),
+        z.string().max(200, { message: "Defect notes must be at most 200 characters" })
+      )
+      .optional(),
     status: z.string().min(1).optional(),
+  })
+  .superRefine((v, ctx) => {
+    const isDefective = v.isDefective === true
+    const hasDefectNotes = typeof v.defectNotes === "string" && v.defectNotes.trim().length > 0
+
+    if (isDefective && !hasDefectNotes) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["defectNotes"],
+        message: "Please add defect details",
+      })
+    }
   })
   .refine((v) => Object.keys(v).length > 0, { message: "No fields to update" })
 

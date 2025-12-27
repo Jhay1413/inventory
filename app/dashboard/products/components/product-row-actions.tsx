@@ -34,12 +34,14 @@ import {
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
   FormMessage,
 } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
+import { Checkbox } from "@/components/ui/checkbox"
 import {
   Select,
   SelectContent,
@@ -111,11 +113,14 @@ export function ProductRowActions({ product }: { product: ProductWithRelations }
       imei: product.imei,
       condition: product.condition as GadgetFormValues["condition"],
       availability: product.availability as GadgetFormValues["availability"],
+      isDefective: product.isDefective,
+      defectNotes: product.defectNotes ?? "",
       status: product.status,
     },
   })
 
   const productTypeId = form.watch("productTypeId")
+  const isDefective = form.watch("isDefective")
   const { data: productModelsData, isLoading: productModelsLoading } =
     useProductModelsByProductType(productTypeId)
 
@@ -229,6 +234,8 @@ export function ProductRowActions({ product }: { product: ProductWithRelations }
         imei: product.imei,
         condition: product.condition as GadgetFormValues["condition"],
         availability: product.availability as GadgetFormValues["availability"],
+        isDefective: product.isDefective,
+        defectNotes: product.defectNotes ?? "",
         status: product.status,
       })
     }
@@ -245,6 +252,8 @@ export function ProductRowActions({ product }: { product: ProductWithRelations }
         imei: values.imei,
         condition: values.condition,
         availability: values.availability,
+        isDefective: values.isDefective,
+        defectNotes: values.isDefective ? values.defectNotes : "",
         status: values.status,
       },
     })
@@ -321,13 +330,29 @@ export function ProductRowActions({ product }: { product: ProductWithRelations }
                 <span className="font-mono text-xs">{productForView.imei}</span>
               </div>
               <div className="flex items-center gap-2">
+                <span className="text-muted-foreground">Branch:</span>
+                <span className="font-medium">{productForView.branch?.name ?? "—"}</span>
+              </div>
+              <div className="flex items-center gap-2">
                 <span className="text-muted-foreground">Condition:</span>
-                <span className="font-medium">{productForView.condition}</span>
+                <span className="font-medium">
+                  {productForView.isDefective ? "Defective" : productForView.condition}
+                </span>
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-muted-foreground">Availability:</span>
                 <span className="font-medium">{productForView.availability}</span>
               </div>
+              <div className="flex items-center gap-2">
+                <span className="text-muted-foreground">Defective:</span>
+                <span className="font-medium">{productForView.isDefective ? "Yes" : "No"}</span>
+              </div>
+              {productForView.isDefective ? (
+                <div className="flex items-center gap-2 md:col-span-2">
+                  <span className="text-muted-foreground">Defect notes:</span>
+                  <span className="font-medium">{productForView.defectNotes || "—"}</span>
+                </div>
+              ) : null}
               {productForView.availability === "Sold" ? (
                 <div className="flex items-center gap-2">
                   <span className="text-muted-foreground">Invoice ID:</span>
@@ -671,6 +696,57 @@ export function ProductRowActions({ product }: { product: ProductWithRelations }
                     )}
                   />
                 </div>
+
+                <FormField
+                  control={form.control}
+                  name="isDefective"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-start gap-2 rounded-md border p-3">
+                      <FormControl>
+                        <Checkbox
+                          checked={field.value}
+                          onCheckedChange={(checked) => {
+                            const next = checked === true
+                            field.onChange(next)
+                            if (!next) {
+                              form.setValue("defectNotes", "", {
+                                shouldDirty: true,
+                                shouldValidate: true,
+                              })
+                              form.clearErrors("defectNotes")
+                            }
+                          }}
+                        />
+                      </FormControl>
+                      <div className="space-y-1 leading-none">
+                        <FormLabel>Defective</FormLabel>
+                        <FormDescription>
+                          Mark this unit as defective (not in sellable condition).
+                        </FormDescription>
+                      </div>
+                    </FormItem>
+                  )}
+                />
+
+                {isDefective ? (
+                  <FormField
+                    control={form.control}
+                    name="defectNotes"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Defect Notes</FormLabel>
+                        <FormControl>
+                          <Input
+                            placeholder="e.g. No network, cracked screen, battery drains fast"
+                            maxLength={200}
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                ) : null}
 
                 <FormField
                   control={form.control}

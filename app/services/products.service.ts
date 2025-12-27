@@ -47,6 +47,7 @@ class ProductsService {
     if (parsed.condition) params.append("condition", parsed.condition)
     if (parsed.availability) params.append("availability", parsed.availability)
     if (parsed.branchId) params.append("branchId", parsed.branchId)
+    if (typeof parsed.isDefective === "boolean") params.append("isDefective", String(parsed.isDefective))
 
     const res = await fetch(`${this.baseUrl}?${params.toString()}`, {
       method: "GET",

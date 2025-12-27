@@ -42,6 +42,7 @@ export function InventoryModelProductsModal({ open, onOpenChange, productModelId
   const [status, setStatus] = React.useState("")
   const [availability, setAvailability] = React.useState<string>("all")
   const [condition, setCondition] = React.useState<string>("all")
+  const [defective, setDefective] = React.useState<"all" | "defective" | "notDefective">("all")
 
   React.useEffect(() => {
     if (open) return
@@ -49,6 +50,7 @@ export function InventoryModelProductsModal({ open, onOpenChange, productModelId
     setStatus("")
     setAvailability("all")
     setCondition("all")
+    setDefective("all")
   }, [open])
 
   const query = React.useMemo(
@@ -60,8 +62,10 @@ export function InventoryModelProductsModal({ open, onOpenChange, productModelId
       status: status.trim() ? status.trim() : undefined,
       availability: availability === "all" ? undefined : (availability as any),
       condition: condition === "all" ? undefined : (condition as any),
+      isDefective:
+        defective === "all" ? undefined : defective === "defective" ? true : false,
     }),
-    [productModelId, search, status, availability, condition]
+    [productModelId, search, status, availability, condition, defective]
   )
 
   const enabled = open && Boolean(productModelId)
@@ -79,7 +83,7 @@ export function InventoryModelProductsModal({ open, onOpenChange, productModelId
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid gap-3 md:grid-cols-4">
+        <div className="grid gap-3 md:grid-cols-5">
           <Input
             placeholder="Search IMEI"
             value={search}
@@ -96,6 +100,18 @@ export function InventoryModelProductsModal({ open, onOpenChange, productModelId
               <SelectItem value={ProductAvailability.SOLD}>Sold</SelectItem>
             </SelectContent>
           </Select>
+
+          <Select value={defective} onValueChange={(v) => setDefective(v as typeof defective)}>
+            <SelectTrigger>
+              <SelectValue placeholder="Defective" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All</SelectItem>
+              <SelectItem value="defective">Defective</SelectItem>
+              <SelectItem value="notDefective">Not Defective</SelectItem>
+            </SelectContent>
+          </Select>
+
           <Select value={condition} onValueChange={setCondition}>
             <SelectTrigger>
               <SelectValue placeholder="Condition" />
@@ -113,6 +129,7 @@ export function InventoryModelProductsModal({ open, onOpenChange, productModelId
             <TableHeader>
               <TableRow>
                 <TableHead>IMEI</TableHead>
+                <TableHead>Branch</TableHead>
                 <TableHead>Color</TableHead>
                 <TableHead className="text-center">RAM</TableHead>
                 <TableHead className="text-center">Storage</TableHead>
@@ -124,13 +141,13 @@ export function InventoryModelProductsModal({ open, onOpenChange, productModelId
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center text-muted-foreground">
+                  <TableCell colSpan={8} className="text-center text-muted-foreground">
                     Loading...
                   </TableCell>
                 </TableRow>
               ) : products.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center text-muted-foreground">
+                  <TableCell colSpan={8} className="text-center text-muted-foreground">
                     No products found
                   </TableCell>
                 </TableRow>
@@ -138,11 +155,16 @@ export function InventoryModelProductsModal({ open, onOpenChange, productModelId
                 products.map((p) => (
                   <TableRow key={p.id}>
                     <TableCell className="font-medium">{p.imei}</TableCell>
+                    <TableCell>{p.branch?.name ?? "—"}</TableCell>
                     <TableCell>{p.color}</TableCell>
                     <TableCell className="text-center">{p.ram}</TableCell>
                     <TableCell className="text-center">{p.storage}</TableCell>
                     <TableCell>
-                      <Badge variant="outline">{p.condition}</Badge>
+                      {p.isDefective ? (
+                        <Badge variant="destructive">Defective</Badge>
+                      ) : (
+                        <Badge variant="outline">{p.condition}</Badge>
+                      )}
                     </TableCell>
                     <TableCell>
                       <Badge variant={p.availability === ProductAvailability.AVAILABLE ? "default" : "secondary"}>

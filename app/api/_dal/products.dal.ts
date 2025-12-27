@@ -9,6 +9,7 @@ type ProductFilters = {
   productModelId?: string
   condition?: "BrandNew" | "SecondHand"
   availability?: "Available" | "Sold"
+  isDefective?: boolean
 }
 
 function buildProductsWhere(filters: ProductFilters) {
@@ -34,6 +35,10 @@ function buildProductsWhere(filters: ProductFilters) {
 
   if (filters.availability) {
     and.push({ availability: filters.availability })
+  }
+
+  if (typeof filters.isDefective === "boolean") {
+    and.push({ isDefective: filters.isDefective })
   }
 
   if (filters.productTypeId) {
@@ -76,6 +81,8 @@ export async function createProduct(data: {
   imei: string
   condition: "BrandNew" | "SecondHand"
   availability: "Available" | "Sold"
+  isDefective?: boolean
+  defectNotes?: string
   status: string
 }) {
   return prisma.product.create({
@@ -120,6 +127,13 @@ export async function listProducts(args: { limit: number; offset: number } & Pro
           productType: true,
         },
       },
+      branch: {
+        select: {
+          id: true,
+          name: true,
+          slug: true,
+        },
+      },
     },
     orderBy: [{ createdAt: "desc" }],
     take: args.limit,
@@ -134,6 +148,13 @@ export async function getProductById(id: string) {
       productModel: {
         include: {
           productType: true,
+        },
+      },
+      branch: {
+        select: {
+          id: true,
+          name: true,
+          slug: true,
         },
       },
       invoice: {
@@ -161,6 +182,13 @@ export async function updateProduct(id: string, data: Record<string, unknown>) {
       productModel: {
         include: {
           productType: true,
+        },
+      },
+      branch: {
+        select: {
+          id: true,
+          name: true,
+          slug: true,
         },
       },
     },

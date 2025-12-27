@@ -75,12 +75,15 @@ export function AddGadgetModal({ onAddGadget }: AddGadgetModalProps) {
       imei: "",
       condition: GadgetCondition.BRAND_NEW,
       availability: GadgetAvailability.AVAILABLE,
+      isDefective: false,
+      defectNotes: "",
       status: "",
     },
   })
 
   const productTypeId = form.watch("productTypeId")
   const autoGenerateImei = form.watch("autoGenerateImei")
+  const isDefective = form.watch("isDefective")
   const normalizedModelSearch = productModelSearch.trim() || undefined
   const { data: productTypesData, isLoading: productTypesLoading } = useProductTypes()
   const { data: productModelsData, isLoading: productModelsLoading } =
@@ -452,6 +455,59 @@ export function AddGadgetModal({ onAddGadget }: AddGadgetModalProps) {
                   )}
                 />
               </div>
+
+              {/* Defect */}
+              <FormField
+                control={form.control}
+                name="isDefective"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-start gap-2 rounded-md border p-3">
+                    <FormControl>
+                      <Checkbox
+                        checked={field.value}
+                        onCheckedChange={(checked) => {
+                          const next = checked === true
+                          field.onChange(next)
+                          if (!next) {
+                            form.setValue("defectNotes", "", {
+                              shouldDirty: true,
+                              shouldValidate: true,
+                            })
+                            form.clearErrors("defectNotes")
+                          }
+                        }}
+                      />
+                    </FormControl>
+                    <div className="space-y-1 leading-none">
+                      <FormLabel>Defective</FormLabel>
+                      <FormDescription>
+                        Mark this unit as defective (not in sellable condition).
+                      </FormDescription>
+                    </div>
+                  </FormItem>
+                )}
+              />
+
+              {isDefective ? (
+                <FormField
+                  control={form.control}
+                  name="defectNotes"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Defect Notes</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="e.g. No network, cracked screen, battery drains fast"
+                          maxLength={200}
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormDescription>Required when defective (max 200 chars)</FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              ) : null}
 
               {/* Status - Full Width */}
               <FormField

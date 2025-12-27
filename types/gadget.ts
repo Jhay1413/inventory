@@ -46,6 +46,14 @@ export const gadgetFormBaseSchema = z.object({
   availability: z.enum([GadgetAvailability.AVAILABLE, GadgetAvailability.SOLD] as const, {
     message: "Please select availability",
   }),
+  isDefective: z.boolean().default(false),
+  defectNotes: z
+    .string()
+    .trim()
+    .max(200, {
+      message: "Defect notes must be at most 200 characters",
+    })
+    .optional(),
   status: z.string().min(1, {
     message: "Status is required",
   }),
@@ -55,6 +63,17 @@ export const gadgetFormBaseSchema = z.object({
 export const gadgetFormSchema = gadgetFormBaseSchema.superRefine((v, ctx) => {
   const wantsAuto = v.autoGenerateImei === true
   const hasImei = v.imei.trim().length > 0
+
+  const isDefective = v.isDefective === true
+  const hasDefectNotes = typeof v.defectNotes === "string" && v.defectNotes.trim().length > 0
+
+  if (isDefective && !hasDefectNotes) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["defectNotes"],
+      message: "Please add defect details",
+    })
+  }
 
   if (!wantsAuto && !hasImei) {
     ctx.addIssue({

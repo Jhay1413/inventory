@@ -169,6 +169,8 @@ model Product {
   imei           String              @unique @db.VarChar(15)
   condition      ProductCondition
   availability   ProductAvailability
+  isDefective    Boolean             @default(false)
+  defectNotes    String?
   status         String
   createdAt      DateTime            @default(now())
   updatedAt      DateTime            @updatedAt
