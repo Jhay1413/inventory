@@ -117,18 +117,129 @@ async function main() {
   }
 
   // Seed Product Types + Models
+  const uniqueModels = (items: string[]) => Array.from(new Set(items));
+
+  const iphoneModels: string[] = [
+    "iPhone 6",
+    "iPhone 6 Plus",
+    "iPhone 6s",
+    "iPhone 6s Plus",
+    "iPhone SE (1st Gen)",
+    "iPhone 7",
+    "iPhone 7 Plus",
+    "iPhone 8",
+    "iPhone 8 Plus",
+    "iPhone X",
+    "iPhone XR",
+    "iPhone XS",
+    "iPhone XS Max",
+    "iPhone 11",
+    "iPhone 11 Pro",
+    "iPhone 11 Pro Max",
+    "iPhone SE (2nd Gen)",
+    "iPhone 12 mini",
+    "iPhone 12",
+    "iPhone 12 Pro",
+    "iPhone 12 Pro Max",
+    "iPhone 13 mini",
+    "iPhone 13",
+    "iPhone 13 Pro",
+    "iPhone 13 Pro Max",
+    "iPhone SE (3rd Gen)",
+    "iPhone 14",
+    "iPhone 14 Plus",
+    "iPhone 14 Pro",
+    "iPhone 14 Pro Max",
+    "iPhone 15",
+    "iPhone 15 Plus",
+    "iPhone 15 Pro",
+    "iPhone 15 Pro Max",
+    "iPhone 16",
+    "iPhone 16 Plus",
+    "iPhone 16 Pro",
+    "iPhone 16 Pro Max",
+  ];
+
+  const ipadModels: string[] = [
+    "iPad (9th Gen)",
+    "iPad (10th Gen)",
+    "iPad Air (4th Gen)",
+    "iPad Air (5th Gen)",
+    "iPad Air 11-inch (M2)",
+    "iPad Air 13-inch (M2)",
+    "iPad mini (5th Gen)",
+    "iPad mini (6th Gen)",
+    // Keep existing seed model names as-is (used by productsSeed below)
+    "iPad Pro 11",
+    // Additional common naming variants
+    "iPad Pro 11-inch (1st Gen)",
+    "iPad Pro 11-inch (2nd Gen)",
+    "iPad Pro 11-inch (3rd Gen)",
+    "iPad Pro 11-inch (4th Gen)",
+    "iPad Pro 12.9-inch (3rd Gen)",
+    "iPad Pro 12.9-inch (4th Gen)",
+    "iPad Pro 12.9-inch (5th Gen)",
+    "iPad Pro 12.9-inch (6th Gen)",
+    "iPad Pro 11-inch (M4)",
+    "iPad Pro 13-inch (M4)",
+  ];
+
+  const macModels: string[] = [
+    // MacBook Air
+    "MacBook Air M1",
+    "MacBook Air M2",
+    "MacBook Air M3",
+    // MacBook Pro
+    "MacBook Pro 13 (M1)",
+    // Keep existing seed model names as-is (used by productsSeed below)
+    "MacBook Pro 14",
+    "MacBook Pro 16",
+    "MacBook Pro 14 (M1 Pro)",
+    "MacBook Pro 14 (M1 Max)",
+    "MacBook Pro 14 (M2 Pro)",
+    "MacBook Pro 14 (M2 Max)",
+    "MacBook Pro 14 (M3 Pro)",
+    "MacBook Pro 14 (M3 Max)",
+    "MacBook Pro 16 (M1 Pro)",
+    "MacBook Pro 16 (M1 Max)",
+    "MacBook Pro 16 (M2 Pro)",
+    "MacBook Pro 16 (M2 Max)",
+    "MacBook Pro 16 (M3 Pro)",
+    "MacBook Pro 16 (M3 Max)",
+    // Desktop Macs
+    "iMac 24-inch (M1)",
+    "iMac 24-inch (M3)",
+    "Mac mini (M1)",
+    "Mac mini (M2)",
+    "Mac mini (M2 Pro)",
+    "Mac Studio (M1 Max)",
+    "Mac Studio (M1 Ultra)",
+    "Mac Studio (M2 Max)",
+    "Mac Studio (M2 Ultra)",
+    "Mac Pro (M2 Ultra)",
+  ];
+
   const productTypeSeed: Array<{ name: string; models: string[] }> = [
     {
       name: 'Phone',
-      models: ['iPhone 15 Pro Max', 'iPhone 14 Pro', 'Samsung Galaxy S24 Ultra', 'Google Pixel 8 Pro'],
+      models: uniqueModels([
+        ...iphoneModels,
+        // Keep existing non-Apple examples
+        "Samsung Galaxy S24 Ultra",
+        "Google Pixel 8 Pro",
+      ]),
     },
     {
       name: 'Laptop',
-      models: ['MacBook Air M2', 'MacBook Pro 14'],
+      models: uniqueModels([...macModels]),
     },
     {
       name: 'Tablet',
-      models: ['iPad Pro 11', 'Samsung Galaxy Tab S9'],
+      models: uniqueModels([
+        ...ipadModels,
+        // Keep existing non-Apple examples
+        "Samsung Galaxy Tab S9",
+      ]),
     },
     {
       name: 'Headset',

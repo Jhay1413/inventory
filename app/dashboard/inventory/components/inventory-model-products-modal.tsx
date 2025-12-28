@@ -75,7 +75,7 @@ export function InventoryModelProductsModal({ open, onOpenChange, productModelId
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-full sm:max-w-6xl">
+      <DialogContent className="w-[calc(100vw-2rem)] sm:max-w-6xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{title ?? "Products"}</DialogTitle>
           <DialogDescription>

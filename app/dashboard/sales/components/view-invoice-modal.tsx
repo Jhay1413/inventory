@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/table"
 
 import { useInvoice } from "@/app/queries/invoices.queries"
+import { CreateReturnModal } from "@/app/dashboard/sales/components/create-return-modal"
 
 function formatMoney(value: number) {
   return value.toLocaleString()
@@ -40,7 +41,22 @@ export function ViewInvoiceModal({ invoiceId }: { invoiceId: string }) {
     })
   }, [invoice])
 
+  const exchangedItems = useMemo(
+    () => items.filter((i) => i.isFreebie && i.product?.status === "Exchanged"),
+    [items]
+  )
+
+  const normalFreebies = useMemo(
+    () => items.filter((i) => i.isFreebie && i.product?.status !== "Exchanged"),
+    [items]
+  )
+
   const freebies = useMemo(() => items.filter((i) => i.isFreebie), [items])
+  const accessoryItems = invoice?.accessoryItems ?? []
+  const accessoryFreebiesCount = accessoryItems.reduce(
+    (sum, it) => sum + (it.isFreebie ? it.quantity : 0),
+    0
+  )
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -48,9 +64,12 @@ export function ViewInvoiceModal({ invoiceId }: { invoiceId: string }) {
         View
       </Button>
 
-      <DialogContent className="min-w-5xl max-w-6xl max-h-[85vh] ">
+      <DialogContent className="w-[calc(100vw-2rem)] sm:max-w-6xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Sale details</DialogTitle>
+          <div className="flex items-center justify-between gap-3">
+            <DialogTitle>Sale details</DialogTitle>
+            {invoice ? <CreateReturnModal invoice={invoice} /> : null}
+          </div>
         </DialogHeader>
 
         {isLoading ? (
@@ -137,7 +156,7 @@ export function ViewInvoiceModal({ invoiceId }: { invoiceId: string }) {
             <div className="rounded-md border p-4">
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <p className="text-sm font-semibold">Main product</p>
+                  <p className="text-sm font-semibold">Sold unit</p>
                   <p className="text-xs text-muted-foreground">
                     {invoice.product.productModel.productType.name} • {invoice.product.productModel.name}
                   </p>
@@ -165,6 +184,25 @@ export function ViewInvoiceModal({ invoiceId }: { invoiceId: string }) {
                   <p className="text-sm">{invoice.product.storage} GB</p>
                 </div>
               </div>
+
+              {exchangedItems.length ? (
+                <div className="mt-4 rounded-md border bg-muted/30 p-3">
+                  <div className="mb-2 flex items-center justify-between">
+                    <p className="text-sm font-semibold">Exchanged replacement</p>
+                    <Badge variant="secondary">Exchange</Badge>
+                  </div>
+                  <div className="space-y-1">
+                    {exchangedItems.map((it) => (
+                      <div key={it.id} className="flex items-center justify-between gap-3">
+                        <div className="text-sm">
+                          {it.product.productModel.name}
+                        </div>
+                        <div className="font-mono text-sm">{it.product.imei}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
             </div>
 
             {/* Items (main + freebies) */}
@@ -172,7 +210,9 @@ export function ViewInvoiceModal({ invoiceId }: { invoiceId: string }) {
               <div className="flex items-center justify-between">
                 <p className="text-sm font-semibold">Invoice items</p>
                 <p className="text-xs text-muted-foreground">
-                  {freebies.length ? `${freebies.length} freebie(s)` : "No freebies"}
+                  {freebies.length || accessoryFreebiesCount
+                    ? `${exchangedItems.length} exchange unit(s) • ${normalFreebies.length} freebie product(s) • ${accessoryFreebiesCount} accessory item(s)`
+                    : "No freebies"}
                 </p>
               </div>
 
@@ -200,7 +240,11 @@ export function ViewInvoiceModal({ invoiceId }: { invoiceId: string }) {
                         <TableRow key={it.id}>
                           <TableCell>
                             {it.isFreebie ? (
-                              <Badge variant="outline">Freebie</Badge>
+                              it.product?.status === "Exchanged" ? (
+                                <Badge variant="secondary">Exchange</Badge>
+                              ) : (
+                                <Badge variant="outline">Freebie</Badge>
+                              )
                             ) : (
                               <Badge>Main</Badge>
                             )}
@@ -227,6 +271,41 @@ export function ViewInvoiceModal({ invoiceId }: { invoiceId: string }) {
                 </Table>
               </div>
             </div>
+
+            {/* Accessory freebies */}
+            {accessoryItems.length ? (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-semibold">Accessory freebies</p>
+                  <p className="text-xs text-muted-foreground">
+                    {accessoryItems.length} item(s)
+                  </p>
+                </div>
+
+                <div className="rounded-md border overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Accessory</TableHead>
+                        <TableHead className="text-right">Quantity</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {accessoryItems.map((it) => (
+                        <TableRow key={it.id}>
+                          <TableCell className="font-medium">
+                            {it.accessory.name}
+                          </TableCell>
+                          <TableCell className="text-right font-medium">
+                            {it.quantity.toLocaleString()}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+            ) : null}
           </div>
         )}
       </DialogContent>

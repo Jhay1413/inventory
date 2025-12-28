@@ -21,6 +21,7 @@ enum ProductCondition {
 enum ProductAvailability {
   Available
   Sold
+  Returned
 }
 
 enum InvoicePaymentType {
@@ -42,6 +43,18 @@ enum TransferStatus {
   Rejected
   Cancelled
   Completed
+}
+
+enum ReturnStatus {
+  Open
+  Processing
+  Completed
+  Rejected
+}
+
+enum ReturnResolution {
+  Exchange
+  Repair
 }
 
 enum ProductAuditAction {
@@ -73,7 +86,12 @@ model User {
   transfersRequested Transfer[] @relation("TransferRequestedBy")
   transfersReceived  Transfer[] @relation("TransferReceivedBy")
 
+  accessoryTransfersRequested AccessoryTransfer[] @relation("AccessoryTransferRequestedBy")
+  accessoryTransfersReceived  AccessoryTransfer[] @relation("AccessoryTransferReceivedBy")
+
   invoicesCreated Invoice[] @relation("InvoiceCreatedBy")
+
+  returnsCreated Return[]
 
   productAuditLogs ProductAuditLog[]
 
@@ -149,10 +167,9 @@ model ProductModel {
   name          String
   productTypeId String
   productType   ProductType @relation(fields: [productTypeId], references: [id], onDelete: Restrict)
+  products      Product[]
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
-
-  products Product[]
 
   @@unique([productTypeId, name])
   @@index([productTypeId])
@@ -183,6 +200,9 @@ model Product {
   invoiceItems InvoiceItem[]
 
   auditLogs ProductAuditLog[]
+
+  returnItems ReturnProductItem[]
+  replacementForReturnItems ReturnProductItem[] @relation("ReturnReplacementProduct")
 
   @@index([productModelId])
   @@index([branchId])
@@ -233,12 +253,19 @@ model Organization {
   invitations Invitation[]
   products    Product[]
 
+  accessoryStocks AccessoryStock[]
+
   productAuditLogs ProductAuditLog[]
 
   transfersFrom Transfer[] @relation("TransferFromBranch")
   transfersTo   Transfer[] @relation("TransferToBranch")
 
+  accessoryTransfersFrom AccessoryTransfer[] @relation("AccessoryTransferFromBranch")
+  accessoryTransfersTo   AccessoryTransfer[] @relation("AccessoryTransferToBranch")
+
   invoices Invoice[]
+
+  returns Return[]
 
   @@unique([slug])
   @@map("organization")
@@ -265,6 +292,9 @@ model Invoice {
   createdBy User          @relation("InvoiceCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
 
   items InvoiceItem[]
+  accessoryItems InvoiceAccessoryItem[]
+
+  returns Return[]
 
   productAuditLogs ProductAuditLog[]
 
@@ -273,6 +303,86 @@ model Invoice {
   @@index([status])
   @@index([createdAt])
   @@map("invoice")
+}
+
+model Return {
+  id          String       @id @default(cuid())
+  invoiceId   String
+  branchId    String
+  createdById String
+  status      ReturnStatus @default(Open)
+  reason      String?
+  notes       String?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  invoice   Invoice       @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+  branch    Organization  @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  createdBy User          @relation(fields: [createdById], references: [id], onDelete: Restrict)
+
+  productItems   ReturnProductItem[]
+  accessoryItems ReturnAccessoryItem[]
+
+  @@index([invoiceId])
+  @@index([branchId])
+  @@index([createdById])
+  @@index([status])
+  @@index([createdAt])
+  @@map("return")
+}
+
+model ReturnProductItem {
+  id                   String           @id @default(cuid())
+  returnId             String
+  productId            String
+  defectNotes          String?
+  resolution           ReturnResolution
+  replacementProductId String?
+  createdAt            DateTime         @default(now())
+
+  return Return  @relation(fields: [returnId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Restrict)
+  replacementProduct Product? @relation("ReturnReplacementProduct", fields: [replacementProductId], references: [id], onDelete: SetNull)
+
+  @@unique([returnId, productId])
+  @@index([returnId])
+  @@index([productId])
+  @@index([replacementProductId])
+  @@map("return_product_item")
+}
+
+model ReturnAccessoryItem {
+  id          String           @id @default(cuid())
+  returnId    String
+  accessoryId String
+  quantity    Int              @default(1)
+  defectNotes String?
+  resolution  ReturnResolution
+  createdAt   DateTime         @default(now())
+
+  return   Return   @relation(fields: [returnId], references: [id], onDelete: Cascade)
+  accessory Accessory @relation(fields: [accessoryId], references: [id], onDelete: Restrict)
+
+  @@index([returnId])
+  @@index([accessoryId])
+  @@map("return_accessory_item")
+}
+
+model InvoiceAccessoryItem {
+  id          String   @id @default(cuid())
+  invoiceId   String
+  accessoryId String
+  quantity    Int      @default(1)
+  isFreebie   Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  invoice   Invoice   @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  accessory Accessory @relation(fields: [accessoryId], references: [id], onDelete: Restrict)
+
+  @@unique([invoiceId, accessoryId])
+  @@index([invoiceId])
+  @@index([accessoryId])
+  @@map("invoice_accessory_item")
 }
 
 model InvoiceItem {
@@ -321,6 +431,77 @@ model Transfer {
   @@index([requestedById])
   @@index([receivedById])
   @@map("transfer")
+}
+
+model Accessory {
+  id   String @id @default(cuid())
+  name String
+
+  stocks    AccessoryStock[]
+  transfers AccessoryTransfer[]
+  invoiceItems InvoiceAccessoryItem[]
+
+  returnItems ReturnAccessoryItem[]
+
+  @@unique([name])
+  @@map("accessory")
+}
+
+model AccessoryStock {
+  id String @id @default(cuid())
+
+  accessoryId String
+  accessory   Accessory @relation(fields: [accessoryId], references: [id], onDelete: Restrict)
+
+  branchId String
+  branch   Organization @relation(fields: [branchId], references: [id], onDelete: Restrict)
+
+  quantity Int @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([accessoryId, branchId])
+  @@index([branchId])
+  @@index([accessoryId])
+  @@map("accessory_stock")
+}
+
+model AccessoryTransfer {
+  id String @id @default(cuid())
+
+  accessoryId String
+  accessory   Accessory @relation(fields: [accessoryId], references: [id], onDelete: Restrict)
+
+  fromBranchId String
+  fromBranch   Organization @relation("AccessoryTransferFromBranch", fields: [fromBranchId], references: [id], onDelete: Restrict)
+
+  toBranchId String
+  toBranch   Organization @relation("AccessoryTransferToBranch", fields: [toBranchId], references: [id], onDelete: Restrict)
+
+  requestedById String
+  requestedBy   User @relation("AccessoryTransferRequestedBy", fields: [requestedById], references: [id], onDelete: Restrict)
+
+  receivedById String?
+  receivedBy   User? @relation("AccessoryTransferReceivedBy", fields: [receivedById], references: [id], onDelete: SetNull)
+
+  quantity Int
+  reason   String
+  notes    String?
+
+  status     TransferStatus @default(Pending)
+  receivedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([accessoryId])
+  @@index([fromBranchId])
+  @@index([toBranchId])
+  @@index([requestedById])
+  @@index([receivedById])
+  @@index([status])
+  @@map("accessory_transfer")
 }
 
 model Member {

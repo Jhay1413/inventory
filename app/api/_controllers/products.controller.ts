@@ -34,7 +34,18 @@ export async function handleListProducts(req: NextRequest) {
     }
 
     const requestedBranchId = parsedQuery.data.branchId
-    const branchId = isAdminOrganization ? requestedBranchId : activeOrganizationId
+    let branchId: string | undefined = requestedBranchId
+
+    if (!isAdminOrganization) {
+      // Branch users can view overall inventory (all branches) when no branch is requested.
+      // If they do request a branch filter, only allow their active branch.
+      if (requestedBranchId && requestedBranchId !== activeOrganizationId) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+      }
+
+      branchId = requestedBranchId ? activeOrganizationId : undefined
+    }
+
     const result = await service.listProducts(parsedQuery.data, { branchId })
     return NextResponse.json(result)
   } catch {

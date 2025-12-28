@@ -54,7 +54,7 @@ export function UpdateUserModal({ userId }: { userId: string }) {
         Edit
       </Button>
 
-      <DialogContent>
+      <DialogContent className="w-[calc(100vw-2rem)] sm:max-w-2xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Edit user</DialogTitle>
         </DialogHeader>

@@ -29,6 +29,7 @@ export async function handleCreateInvoice(req: NextRequest) {
     const result = await service.createInvoice({
       productId: parsed.data.productId,
       freebieProductIds: parsed.data.freebieProductIds,
+      freebieAccessoryItems: parsed.data.freebieAccessoryItems,
       branchId: activeOrganizationId,
       createdById: userId,
       salePrice: parsed.data.salePrice,

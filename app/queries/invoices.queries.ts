@@ -64,6 +64,10 @@ export function useCreateInvoice() {
       queryClient.invalidateQueries({ queryKey: inventoryKeys.all })
       queryClient.invalidateQueries({ queryKey: invoiceKeys.lists() })
       queryClient.invalidateQueries({ queryKey: invoiceKeys.stats() })
+      // Also refresh the Sales product search picker cache
+      queryClient.invalidateQueries({
+        queryKey: [...invoiceKeys.all, "products-search"] as const,
+      })
       toast.success("Sale saved")
     },
     onError: (error: Error) => {

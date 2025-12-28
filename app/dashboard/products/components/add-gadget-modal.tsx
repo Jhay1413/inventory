@@ -13,6 +13,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
   Form,
   FormControl,
@@ -49,8 +50,11 @@ import {
 } from "@/types/gadget"
 import { useProductTypes } from "@/app/queries/product-types.queries"
 import { useProductModelsByProductType } from "@/app/queries/product-models.queries"
+import { useCreateAccessory } from "@/app/queries/accessories.queries"
+import { useAddAccessoryStock } from "@/app/queries/accessory-stock.queries"
 import { cn } from "@/lib/utils"
 import { Check, ChevronsUpDown } from "lucide-react"
+import { z } from "zod"
 
 interface AddGadgetModalProps {
   onAddGadget: (gadget: GadgetFormSubmission) => void
@@ -58,10 +62,14 @@ interface AddGadgetModalProps {
 
 export function AddGadgetModal({ onAddGadget }: AddGadgetModalProps) {
   const [open, setOpen] = useState(false)
+  const [mode, setMode] = useState<"gadget" | "accessory">("gadget")
   const [productModelSearch, setProductModelSearch] = useState("")
   const [productTypeOpen, setProductTypeOpen] = useState(false)
   const [productModelOpen, setProductModelOpen] = useState(false)
   const imeiInputRef = useRef<HTMLInputElement | null>(null)
+
+  const createAccessory = useCreateAccessory()
+  const addAccessoryStock = useAddAccessoryStock()
 
   const form = useForm<GadgetFormValues>({
     resolver: zodResolver(gadgetFormSchema) as unknown as Resolver<GadgetFormValues>,
@@ -81,6 +89,21 @@ export function AddGadgetModal({ onAddGadget }: AddGadgetModalProps) {
     },
   })
 
+  const accessoryFormSchema = z.object({
+    name: z.string().min(1, { message: "Accessory name is required" }),
+    quantity: z.coerce.number().int().positive({ message: "Quantity must be at least 1" }),
+  })
+
+  type AccessoryFormValues = z.infer<typeof accessoryFormSchema>
+
+  const accessoryForm = useForm<AccessoryFormValues>({
+    resolver: zodResolver(accessoryFormSchema) as unknown as Resolver<AccessoryFormValues>,
+    defaultValues: {
+      name: "",
+      quantity: 1,
+    },
+  })
+
   const productTypeId = form.watch("productTypeId")
   const autoGenerateImei = form.watch("autoGenerateImei")
   const isDefective = form.watch("isDefective")
@@ -91,6 +114,7 @@ export function AddGadgetModal({ onAddGadget }: AddGadgetModalProps) {
 
   useEffect(() => {
     if (!open) return
+    if (mode !== "gadget") return
 
     // USB barcode scanners behave like a keyboard: focusing the IMEI field
     // makes scanning fast (no camera needed).
@@ -100,6 +124,13 @@ export function AddGadgetModal({ onAddGadget }: AddGadgetModalProps) {
     }, 0)
 
     return () => clearTimeout(timeout)
+  }, [open, mode])
+
+  useEffect(() => {
+    if (open) return
+    setMode("gadget")
+    accessoryForm.reset({ name: "", quantity: 1 })
+    form.reset()
   }, [open])
 
   function onSubmit(values: GadgetFormValues) {
@@ -122,6 +153,23 @@ export function AddGadgetModal({ onAddGadget }: AddGadgetModalProps) {
     form.setValue("imei", normalized, { shouldValidate: true, shouldDirty: true })
   }
 
+  async function onSubmitAccessory(values: AccessoryFormValues) {
+    try {
+      const name = values.name.trim()
+
+      const created = await createAccessory.mutateAsync({ name })
+      await addAccessoryStock.mutateAsync({
+        accessoryId: created.accessory.id,
+        quantity: values.quantity,
+      })
+
+      accessoryForm.reset({ name: "", quantity: 1 })
+      setOpen(false)
+    } catch {
+      // Errors are surfaced via mutation toasts.
+    }
+  }
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
@@ -130,94 +178,103 @@ export function AddGadgetModal({ onAddGadget }: AddGadgetModalProps) {
           Add Gadget
         </Button>
       </DialogTrigger>
-      <DialogContent className="min-w-3xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="w-[calc(100vw-2rem)] sm:max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Add New Gadget</DialogTitle>
+          <DialogTitle>Add Inventory Item</DialogTitle>
           <DialogDescription>
-            Fill in the details to add a new gadget to your inventory
+            Add a gadget (per-unit) or accessory (bulk quantity)
           </DialogDescription>
         </DialogHeader>
 
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-            {/* Product Information */}
-            <div className="space-y-4">
-              <h3 className="text-sm font-medium">Product Information</h3>
-              <div className="grid gap-4 md:grid-cols-2">
-                {/* Type */}
-                <FormField
-                  control={form.control}
-                  name="productTypeId"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-col space-y-1">
-                      <FormLabel className="text-sm">Product Type</FormLabel>
-                      <p className="text-xs text-muted-foreground truncate text-nowrap">
-                        You are able to select product type
-                      </p>
-                      <FormControl>
-                        <Popover open={productTypeOpen} onOpenChange={setProductTypeOpen}>
-                          <PopoverTrigger asChild>
-                            <Button
-                              variant="outline"
-                              role="combobox"
-                              className={cn(
-                                "justify-between h-8",
-                                !field.value && "text-muted-foreground"
-                              )}
-                            >
-                              {field.value
-                                ? `${productTypesData?.productTypes.find((t) => t.id === field.value)?.name ?? ""}`
-                                : productTypesLoading
-                                  ? "Loading..."
-                                  : "Select product type"}
-                              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                            </Button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-[260px] p-0">
-                            <Command>
-                              <CommandInput placeholder="Search product type..." />
-                              <CommandList>
-                                <CommandEmpty>No product type found.</CommandEmpty>
-                                <CommandGroup>
-                                  {(productTypesData?.productTypes ?? []).map((t) => (
-                                    <CommandItem
-                                      key={t.id}
-                                      value={t.name}
-                                      onSelect={() => {
-                                        form.setValue("productTypeId", t.id, {
-                                          shouldDirty: true,
-                                          shouldValidate: true,
-                                        })
+        <Tabs value={mode} onValueChange={(v) => setMode(v as typeof mode)}>
+          <TabsList>
+            <TabsTrigger value="gadget">Gadget</TabsTrigger>
+            <TabsTrigger value="accessory">Accessory</TabsTrigger>
+          </TabsList>
 
-                                        form.setValue("productModelId", "", {
-                                          shouldDirty: true,
-                                          // Don't validate model immediately when type changes.
-                                          shouldValidate: false,
-                                        })
-                                        form.clearErrors("productModelId")
-                                        setProductModelSearch("")
-                                        setProductTypeOpen(false)
-                                      }}
-                                    >
-                                      <Check
-                                        className={cn(
-                                          "mr-2 h-4 w-4",
-                                          t.id === field.value ? "opacity-100" : "opacity-0"
-                                        )}
-                                      />
-                                      {t.name}
-                                    </CommandItem>
-                                  ))}
-                                </CommandGroup>
-                              </CommandList>
-                            </Command>
-                          </PopoverContent>
-                        </Popover>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+          <TabsContent value="gadget" className="mt-4">
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                {/* Product Information */}
+                <div className="space-y-4">
+                  <h3 className="text-sm font-medium">Product Information</h3>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    {/* Type */}
+                    <FormField
+                      control={form.control}
+                      name="productTypeId"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-col space-y-1">
+                          <FormLabel className="text-sm">Product Type</FormLabel>
+                          <p className="text-xs text-muted-foreground truncate text-nowrap">
+                            You are able to select product type
+                          </p>
+                          <FormControl>
+                            <Popover open={productTypeOpen} onOpenChange={setProductTypeOpen}>
+                              <PopoverTrigger asChild>
+                                <Button
+                                  variant="outline"
+                                  role="combobox"
+                                  className={cn(
+                                    "justify-between h-8",
+                                    !field.value && "text-muted-foreground"
+                                  )}
+                                >
+                                  {field.value
+                                    ? `${productTypesData?.productTypes.find((t) => t.id === field.value)?.name ?? ""}`
+                                    : productTypesLoading
+                                      ? "Loading..."
+                                      : "Select product type"}
+                                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                </Button>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-[260px] p-0">
+                                <Command>
+                                  <CommandInput placeholder="Search product type..." />
+                                  <CommandList>
+                                    <CommandEmpty>No product type found.</CommandEmpty>
+                                    <CommandGroup>
+                                      {(productTypesData?.productTypes ?? [])
+                                        .filter((t) => t.name.trim().toLowerCase() !== "accessory")
+                                        .map((t) => (
+                                        <CommandItem
+                                          key={t.id}
+                                          value={t.name}
+                                          onSelect={() => {
+                                            form.setValue("productTypeId", t.id, {
+                                              shouldDirty: true,
+                                              shouldValidate: true,
+                                            })
+
+                                            form.setValue("productModelId", "", {
+                                              shouldDirty: true,
+                                              // Don't validate model immediately when type changes.
+                                              shouldValidate: false,
+                                            })
+                                            form.clearErrors("productModelId")
+                                            setProductModelSearch("")
+                                            setProductTypeOpen(false)
+                                          }}
+                                        >
+                                          <Check
+                                            className={cn(
+                                              "mr-2 h-4 w-4",
+                                              t.id === field.value ? "opacity-100" : "opacity-0"
+                                            )}
+                                          />
+                                          {t.name}
+                                        </CommandItem>
+                                      ))}
+                                    </CommandGroup>
+                                  </CommandList>
+                                </Command>
+                              </PopoverContent>
+                            </Popover>
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
 
                 {/* Model */}
                 <FormField
@@ -542,7 +599,79 @@ export function AddGadgetModal({ onAddGadget }: AddGadgetModalProps) {
               <Button type="submit">Add Gadget</Button>
             </div>
           </form>
-        </Form>
+            </Form>
+          </TabsContent>
+
+          <TabsContent value="accessory" className="mt-4">
+            <Form {...accessoryForm}>
+              <form
+                onSubmit={accessoryForm.handleSubmit(onSubmitAccessory)}
+                className="space-y-6"
+              >
+                <div className="space-y-4">
+                  <h3 className="text-sm font-medium">Accessory Stock</h3>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <FormField
+                      control={accessoryForm.control}
+                      name="name"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Accessory Name</FormLabel>
+                          <FormControl>
+                            <Input placeholder="e.g. USB-C Cable" {...field} />
+                          </FormControl>
+                          <FormDescription>
+                            Type an existing name or a new one (it will be created).
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={accessoryForm.control}
+                      name="quantity"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Quantity</FormLabel>
+                          <FormControl>
+                            <Input type="number" inputMode="numeric" min={1} {...field} />
+                          </FormControl>
+                          <FormDescription>
+                            Stock will be added into the warehouse branch.
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-3">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      accessoryForm.reset({ name: "", quantity: 1 })
+                      setOpen(false)
+                    }}
+                    disabled={createAccessory.isPending || addAccessoryStock.isPending}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="submit"
+                    disabled={createAccessory.isPending || addAccessoryStock.isPending}
+                  >
+                    {createAccessory.isPending || addAccessoryStock.isPending
+                      ? "Saving..."
+                      : "Add Accessory"}
+                  </Button>
+                </div>
+              </form>
+            </Form>
+          </TabsContent>
+        </Tabs>
       </DialogContent>
     </Dialog>
   )

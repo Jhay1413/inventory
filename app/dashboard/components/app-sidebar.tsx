@@ -49,12 +49,17 @@ const data = {
             icon: IconDashboard,
         },
         {
-            title: "Products",
+            title: "Gadgets & Accessories",
             url: "/dashboard/products",
             icon: IconDeviceMobile,
         },
         {
-            title: "Inventory",
+            title: "Manage Types & Models",
+            url: "/dashboard/products/manage",
+            icon: IconPackage,
+        },
+        {
+            title: "Inventory Management",
             url: "/dashboard/inventory",
             icon: IconBox,
         },
@@ -64,12 +69,17 @@ const data = {
             icon: IconCurrencyDollar,
         },
         {
+            title: "Returns",
+            url: "/dashboard/returns",
+            icon: IconReport,
+        },
+        {
             title: "Branches",
             url: "/dashboard/branches",
             icon: IconBuildingStore,
         },
         {
-            title: "User Management",
+            title: "Users",
             url: "/dashboard/users",
             icon: IconUsers,
         },
@@ -82,38 +92,38 @@ const data = {
             url: "/dashboard/transfers",
             items: [
                 {
-                    title: "Incoming Transfers",
+                    title: "Incoming",
                     url: "/dashboard/transfers/incoming",
                 },
                 {
-                    title: "Pending Transfers",
+                    title: "Pending",
                     url: "/dashboard/transfers/pending",
                 },
                 {
-                    title: "Transfer History",
+                    title: "History",
                     url: "/dashboard/transfers/history",
                 },
                 {
-                    title: "New Transfer",
+                    title: "Create Transfer",
                     url: "/dashboard/transfers/new",
                 },
             ],
         },
         {
-            title: "Stock Management",
+            title: "Stock",
             icon: IconPackage,
             url: "/dashboard/stock",
             items: [
                 {
-                    title: "Stock Overview",
+                    title: "Overview",
                     url: "/dashboard/stock/overview",
                 },
                 {
-                    title: "Low Stock Alerts",
+                    title: "Alerts",
                     url: "/dashboard/stock/alerts",
                 },
                 {
-                    title: "Restock Orders",
+                    title: "Orders",
                     url: "/dashboard/stock/orders",
                 },
             ],
@@ -173,17 +183,17 @@ const data = {
 const nonAdminData = {
     navMain: [
         {
-            title: "Dashboard",
+            title: "Branch Dashboard",
             url: "/dashboard/branch",
             icon: IconDashboard,
         },
         {
-            title: "Products",
+            title: "Gadgets & Accessories",
             url: "/dashboard/products",
             icon: IconDeviceMobile,
         },
         {
-            title: "Inventory",
+            title: "Inventory Management",
             url: "/dashboard/inventory",
             icon: IconBox,
         },
@@ -201,19 +211,19 @@ const nonAdminData = {
             url: "/dashboard/transfers",
             items: [
                 {
-                    title: "Incoming Transfers",
+                    title: "Incoming",
                     url: "/dashboard/transfers/incoming",
                 },
                 {
-                    title: "Pending Transfers",
+                    title: "Pending",
                     url: "/dashboard/transfers/pending",
                 },
                 {
-                    title: "Transfer History",
+                    title: "History",
                     url: "/dashboard/transfers/history",
                 },
                 {
-                    title: "New Transfer",
+                    title: "Create Transfer",
                     url: "/dashboard/transfers/new",
                 },
             ],

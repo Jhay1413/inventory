@@ -297,7 +297,7 @@ export function ProductRowActions({ product }: { product: ProductWithRelations }
 
       {/* View */}
       <Dialog open={viewOpen} onOpenChange={setViewOpen}>
-        <DialogContent className="min-w-5xl max-h-[85vh] overflow-y-auto">
+        <DialogContent className="w-[calc(100vw-2rem)] sm:max-w-6xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Product Details</DialogTitle>
             <DialogDescription>View the details for this product.</DialogDescription>
@@ -473,7 +473,7 @@ export function ProductRowActions({ product }: { product: ProductWithRelations }
 
       {/* Barcode */}
       <Dialog open={barcodeOpen} onOpenChange={setBarcodeOpen}>
-        <DialogContent className="max-w-3xl">
+        <DialogContent className="w-[calc(100vw-2rem)] sm:max-w-3xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Generate Barcode</DialogTitle>
             <DialogDescription>
@@ -508,7 +508,7 @@ export function ProductRowActions({ product }: { product: ProductWithRelations }
 
       {/* Edit */}
       <Dialog open={editOpen} onOpenChange={handleEditOpenChange}>
-        <DialogContent className="min-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="w-[calc(100vw-2rem)] sm:max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Product</DialogTitle>
             <DialogDescription>Update this product in your inventory.</DialogDescription>

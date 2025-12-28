@@ -1,5 +1,5 @@
 import { prisma } from "@/app/lib/db"
-import type { Prisma } from "@/app/generated/prisma/client"
+import type { Prisma, ProductAvailability } from "@/app/generated/prisma/client"
 
 type ProductFilters = {
   branchId?: string
@@ -8,7 +8,7 @@ type ProductFilters = {
   productTypeId?: string
   productModelId?: string
   condition?: "BrandNew" | "SecondHand"
-  availability?: "Available" | "Sold"
+  availability?: ProductAvailability
   isDefective?: boolean
 }
 
@@ -80,7 +80,7 @@ export async function createProduct(data: {
   storage?: number
   imei: string
   condition: "BrandNew" | "SecondHand"
-  availability: "Available" | "Sold"
+  availability: ProductAvailability
   isDefective?: boolean
   defectNotes?: string
   status: string

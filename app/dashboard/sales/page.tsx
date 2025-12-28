@@ -37,11 +37,14 @@ import { ViewInvoiceModal } from "./components/view-invoice-modal"
 
 type ConditionFilter = "all" | "BrandNew" | "SecondHand"
 
+const PER_PAGE = 15
+
 export default function SalesPage() {
   const [searchQuery, setSearchQuery] = React.useState("")
   const [typeFilter, setTypeFilter] = React.useState("all")
   const [conditionFilter, setConditionFilter] = React.useState<ConditionFilter>("all")
   const [branchFilter, setBranchFilter] = React.useState("all")
+  const [page, setPage] = React.useState(1)
 
   const { data: productTypesData } = useProductTypes()
   const { data: statsData, isLoading: statsLoading } = useProductStats()
@@ -74,20 +77,26 @@ export default function SalesPage() {
     return branchFilter === "all" ? undefined : branchFilter
   }, [branchFilter, isAdminOrganization])
 
+  React.useEffect(() => {
+    setPage(1)
+  }, [searchQuery, typeFilter, conditionFilter, branchFilter])
+
   const listFilters = React.useMemo(
     () => ({
-      limit: 100,
-      offset: 0,
+      limit: PER_PAGE,
+      offset: (page - 1) * PER_PAGE,
       search: searchQuery.trim() || undefined,
       branchId: selectedBranchId,
       productTypeId: typeFilter === "all" ? undefined : typeFilter,
       condition: conditionFilter === "all" ? undefined : conditionFilter,
     }),
-    [conditionFilter, searchQuery, selectedBranchId, typeFilter]
+    [conditionFilter, page, searchQuery, selectedBranchId, typeFilter]
   )
 
   const { data: invoicesData, isLoading } = useInvoices(listFilters)
   const invoices = invoicesData?.invoices ?? []
+  const total = invoicesData?.pagination.total ?? 0
+  const pageCount = Math.max(1, Math.ceil(total / PER_PAGE))
 
   const { data: invoiceStats, isLoading: invoiceStatsLoading } = useInvoiceStats(
     selectedBranchId ? { branchId: selectedBranchId } : undefined
@@ -220,7 +229,7 @@ export default function SalesPage() {
         <CardHeader>
           <CardTitle>Sold Items</CardTitle>
           <CardDescription>
-            {isLoading ? "Loading..." : `${invoices.length} sale(s) found`}
+            {isLoading ? "Loading..." : `${total.toLocaleString()} sale(s) found`}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -254,6 +263,13 @@ export default function SalesPage() {
                 </TableRow>
               ) : (
                 invoices.map((inv) => (
+                  (() => {
+                    const exchangedItem = (inv.items ?? []).find(
+                      (it) => it.isFreebie && it.product?.status === "Exchanged"
+                    )
+                    const displayProduct = exchangedItem?.product ?? inv.product
+
+                    return (
                   <TableRow key={inv.id}>
                     <TableCell>
                       <div className="flex items-center gap-2">
@@ -265,15 +281,25 @@ export default function SalesPage() {
                       <Badge variant="outline">{inv.branch.name}</Badge>
                     </TableCell>
                     <TableCell>
-                      <Badge variant="outline">{inv.product.productModel.productType.name}</Badge>
+                      <Badge variant="outline">{displayProduct.productModel.productType.name}</Badge>
                     </TableCell>
-                    <TableCell className="font-medium">{inv.product.productModel.name}</TableCell>
-                    <TableCell className="font-mono text-sm">{inv.product.imei}</TableCell>
+                    <TableCell className="font-medium">{displayProduct.productModel.name}</TableCell>
+                    <TableCell className="font-mono text-sm">
+                      <div className="flex flex-col">
+                        <div className="flex items-center gap-2">
+                          <span>{displayProduct.imei}</span>
+                          {exchangedItem ? <Badge variant="secondary">Exchanged</Badge> : null}
+                        </div>
+                        {exchangedItem ? (
+                          <span className="text-xs text-muted-foreground">Original: {inv.product.imei}</span>
+                        ) : null}
+                      </div>
+                    </TableCell>
                     <TableCell>
                       <Badge
-                        variant={inv.product.condition === "BrandNew" ? "default" : "outline"}
+                        variant={displayProduct.condition === "BrandNew" ? "default" : "outline"}
                       >
-                        {inv.product.condition === "BrandNew" ? "Brand New" : "Second Hand"}
+                        {displayProduct.condition === "BrandNew" ? "Brand New" : "Second Hand"}
                       </Badge>
                     </TableCell>
                     <TableCell className="font-medium">{inv.salePrice.toLocaleString()}</TableCell>
@@ -300,10 +326,36 @@ export default function SalesPage() {
                       </div>
                     </TableCell>
                   </TableRow>
+                    )
+                  })()
                 ))
               )}
             </TableBody>
           </Table>
+
+          <div className="mt-4 flex items-center justify-between">
+            <div className="text-sm text-muted-foreground">
+              Page {page} of {pageCount}
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                className="inline-flex h-9 items-center justify-center rounded-md border bg-background px-3 text-sm font-medium disabled:opacity-50"
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page <= 1 || isLoading}
+                type="button"
+              >
+                Previous
+              </button>
+              <button
+                className="inline-flex h-9 items-center justify-center rounded-md border bg-background px-3 text-sm font-medium disabled:opacity-50"
+                onClick={() => setPage((p) => Math.min(pageCount, p + 1))}
+                disabled={page >= pageCount || isLoading}
+                type="button"
+              >
+                Next
+              </button>
+            </div>
+          </div>
         </CardContent>
       </Card>
     </div>

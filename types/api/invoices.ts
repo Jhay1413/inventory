@@ -1,5 +1,6 @@
 import { z } from "zod"
 import { PaginationSchema, ProductCondition, ProductWithRelationsSchema } from "@/types/api/products"
+import { AccessorySchema } from "@/types/api/accessories"
 
 export const InvoicePaymentType = {
   CASH: "Cash",
@@ -61,6 +62,19 @@ export const InvoiceWithRelationsSchema = InvoiceSchema.extend({
       })
     )
     .default([]),
+  accessoryItems: z
+    .array(
+      z.object({
+        id: z.string(),
+        invoiceId: z.string(),
+        accessoryId: z.string(),
+        quantity: z.number().int(),
+        isFreebie: z.boolean(),
+        createdAt: z.string().datetime(),
+        accessory: AccessorySchema,
+      })
+    )
+    .default([]),
 })
 
 export type InvoiceWithRelations = z.infer<typeof InvoiceWithRelationsSchema>
@@ -68,6 +82,14 @@ export type InvoiceWithRelations = z.infer<typeof InvoiceWithRelationsSchema>
 export const CreateInvoiceSchema = z.object({
   productId: z.string().min(1, "Product is required"),
   freebieProductIds: z.array(z.string().min(1)).optional(),
+  freebieAccessoryItems: z
+    .array(
+      z.object({
+        accessoryId: z.string().min(1, "Accessory is required"),
+        quantity: z.coerce.number().int().positive().max(100000),
+      })
+    )
+    .optional(),
   salePrice: z.coerce.number().int().positive("Sales price is required"),
   paymentType: z.enum([
     InvoicePaymentType.CASH,

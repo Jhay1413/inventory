@@ -3,6 +3,7 @@ import * as dal from "@/app/api/_dal/invoices.dal"
 export async function createInvoice(args: {
   productId: string
   freebieProductIds?: string[]
+  freebieAccessoryItems?: { accessoryId: string; quantity: number }[]
   branchId: string
   createdById: string
   salePrice: number

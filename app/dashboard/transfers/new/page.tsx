@@ -36,6 +36,12 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs"
+import {
   Form,
   FormControl,
   FormField,
@@ -45,9 +51,12 @@ import {
 } from "@/components/ui/form"
 import { authClient } from "@/app/lib/auth-client"
 import { useCreateTransfer, useTransferProductsSearch } from "@/app/queries/transfers.queries"
+import { useCreateAccessoryTransfer } from "@/app/queries/accessory-transfers.queries"
+import { useAccessoryStockList } from "@/app/queries/accessory-stock.queries"
 import {
   type ProductWithRelations,
 } from "@/types/api/products"
+import type { AccessoryStockWithRelations } from "@/types/api/accessory-stock"
 
 function formatProductLabel(p: ProductWithRelations) {
   const typeName = p.productModel?.productType?.name ?? ""
@@ -68,6 +77,23 @@ const transferFormSchema = z.object({
 
 type TransferFormValues = z.infer<typeof transferFormSchema>
 
+const accessoryTransferFormSchema = z.object({
+  accessoryId: z.string().min(1, "Select an accessory"),
+  quantity: z.coerce.number().int().positive().max(100000),
+  toBranchId: z.string().min(1, "Destination branch is required"),
+  reason: z.string().trim().min(1, "Reason is required"),
+  notes: z
+    .string()
+    .optional()
+    .transform((v) => (v?.trim() ? v.trim() : undefined)),
+})
+
+type AccessoryTransferFormValues = z.infer<typeof accessoryTransferFormSchema>
+
+function formatAccessoryLabel(stock: AccessoryStockWithRelations) {
+  return `${stock.accessory.name} (Available: ${stock.quantity})`
+}
+
 export default function NewTransferPage() {
   const router = useRouter()
   const { data: activeOrganization } = authClient.useActiveOrganization()
@@ -78,13 +104,30 @@ export default function NewTransferPage() {
   const [debouncedImeiSearch, setDebouncedImeiSearch] = React.useState("")
   const [selectedProduct, setSelectedProduct] = React.useState<ProductWithRelations | null>(null)
 
+  const [accessoryPickerOpen, setAccessoryPickerOpen] = React.useState(false)
+  const [accessorySearch, setAccessorySearch] = React.useState("")
+  const [selectedAccessoryStock, setSelectedAccessoryStock] = React.useState<AccessoryStockWithRelations | null>(null)
+
   const createTransfer = useCreateTransfer()
+  const createAccessoryTransfer = useCreateAccessoryTransfer()
 
   const form = useForm<TransferFormValues>({
     resolver: zodResolver(transferFormSchema) as unknown as Resolver<TransferFormValues>,
     mode: "onChange",
     defaultValues: {
       productId: "",
+      toBranchId: "",
+      reason: "",
+      notes: "",
+    },
+  })
+
+  const accessoryForm = useForm<AccessoryTransferFormValues>({
+    resolver: zodResolver(accessoryTransferFormSchema) as unknown as Resolver<AccessoryTransferFormValues>,
+    mode: "onChange",
+    defaultValues: {
+      accessoryId: "",
+      quantity: 1,
       toBranchId: "",
       reason: "",
       notes: "",
@@ -100,6 +143,8 @@ export default function NewTransferPage() {
   const fromBranchName = activeOrganization?.name ?? ""
   const toBranchId = form.watch("toBranchId")
   const toBranchName = organizations?.find((o) => o.id === toBranchId)?.name ?? ""
+  const accessoryToBranchId = accessoryForm.watch("toBranchId")
+  const accessoryToBranchName = organizations?.find((o) => o.id === accessoryToBranchId)?.name ?? ""
 
   React.useEffect(() => {
     setSelectedProduct(null)
@@ -124,6 +169,19 @@ export default function NewTransferPage() {
     return (organizations ?? []).filter((o) => o.id !== fromBranchId)
   }, [fromBranchId, organizations])
 
+  const accessoryStocksQuery = useAccessoryStockList({}, { enabled: Boolean(fromBranchId) })
+  const accessoryStocks = accessoryStocksQuery.data?.stocks ?? []
+  const filteredAccessoryStocks = React.useMemo(() => {
+    const normalized = accessorySearch.trim().toLowerCase()
+    return accessoryStocks
+      .filter((s) => s.quantity > 0)
+      .filter((s) => {
+        if (!normalized) return true
+        return s.accessory.name.toLowerCase().includes(normalized)
+      })
+      .slice(0, 25)
+  }, [accessorySearch, accessoryStocks])
+
   const onSubmit = async (values: TransferFormValues) => {
     try {
       await createTransfer.mutateAsync({
@@ -134,6 +192,27 @@ export default function NewTransferPage() {
       })
 
       form.reset()
+      router.replace("/dashboard/transfers")
+      router.refresh()
+    } catch {
+      // handled by mutation
+    }
+  }
+
+  const onSubmitAccessory = async (values: AccessoryTransferFormValues) => {
+    try {
+      await createAccessoryTransfer.mutateAsync({
+        accessoryId: values.accessoryId,
+        toBranchId: values.toBranchId,
+        quantity: values.quantity,
+        reason: values.reason,
+        notes: values.notes,
+      })
+
+      accessoryForm.reset()
+      setAccessorySearch("")
+      setSelectedAccessoryStock(null)
+      setAccessoryPickerOpen(false)
       router.replace("/dashboard/transfers")
       router.refresh()
     } catch {
@@ -153,11 +232,18 @@ export default function NewTransferPage() {
           Create a new transfer request between branches
         </p>
       </div>
-      <Form {...form}>
-        <form
-          onSubmit={form.handleSubmit(onSubmit)}
-          className="grid gap-6 md:grid-cols-2"
-        >
+      <Tabs defaultValue="gadget" className="w-full">
+        <TabsList>
+          <TabsTrigger value="gadget">Gadget</TabsTrigger>
+          <TabsTrigger value="accessory">Accessory</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="gadget" className="mt-4">
+          <Form {...form}>
+            <form
+              onSubmit={form.handleSubmit(onSubmit)}
+              className="grid gap-6 md:grid-cols-2"
+            >
             <Card>
               <CardHeader>
                 <CardTitle>Transfer Details</CardTitle>
@@ -395,8 +481,241 @@ export default function NewTransferPage() {
                 </div>
               </CardContent>
             </Card>
-          </form>
-      </Form>
+            </form>
+          </Form>
+        </TabsContent>
+
+        <TabsContent value="accessory" className="mt-4">
+          <Form {...accessoryForm}>
+            <form
+              onSubmit={accessoryForm.handleSubmit(onSubmitAccessory)}
+              className="grid gap-6 md:grid-cols-2"
+            >
+              <Card>
+                <CardHeader>
+                  <CardTitle>Accessory Transfer Details</CardTitle>
+                  <CardDescription>Transfer accessory quantity between branches</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <FormField
+                    control={accessoryForm.control}
+                    name="accessoryId"
+                    render={({ field }) => (
+                      <FormItem className="space-y-2">
+                        <FormLabel>Accessory</FormLabel>
+                        <FormControl>
+                          <Popover open={accessoryPickerOpen} onOpenChange={setAccessoryPickerOpen}>
+                            <PopoverTrigger asChild>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                className="w-full justify-between"
+                                disabled={!fromBranchId}
+                              >
+                                <span className="truncate">
+                                  {selectedAccessoryStock?.accessoryId === field.value
+                                    ? formatAccessoryLabel(selectedAccessoryStock)
+                                    : field.value
+                                      ? "Selected accessory"
+                                      : "Search accessory"}
+                                </span>
+                                <IconSearch className="h-4 w-4 text-muted-foreground" />
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent
+                              className="w-[--radix-popover-trigger-width] p-0"
+                              align="start"
+                            >
+                              <Command shouldFilter={false}>
+                                <CommandInput
+                                  placeholder="Type accessory name"
+                                  value={accessorySearch}
+                                  onValueChange={setAccessorySearch}
+                                />
+                                <CommandList>
+                                  {accessoryStocksQuery.isLoading ? (
+                                    <CommandEmpty>Loading…</CommandEmpty>
+                                  ) : filteredAccessoryStocks.length === 0 ? (
+                                    <CommandEmpty>
+                                      {accessorySearch.trim()
+                                        ? "No matching accessories."
+                                        : "No accessories in stock."}
+                                    </CommandEmpty>
+                                  ) : null}
+                                  <CommandGroup>
+                                    {filteredAccessoryStocks.map((stock) => (
+                                      <CommandItem
+                                        key={stock.id}
+                                        value={stock.accessory.name}
+                                        onSelect={() => {
+                                          setSelectedAccessoryStock(stock)
+                                          field.onChange(stock.accessoryId)
+                                          accessoryForm.clearErrors("accessoryId")
+                                          const qty = accessoryForm.getValues("quantity")
+                                          if (qty > stock.quantity) {
+                                            accessoryForm.setValue("quantity", stock.quantity, {
+                                              shouldDirty: true,
+                                              shouldValidate: true,
+                                            })
+                                          }
+                                          setAccessoryPickerOpen(false)
+                                        }}
+                                      >
+                                        <div className="flex w-full items-center justify-between gap-2">
+                                          <span className="truncate">{stock.accessory.name}</span>
+                                          <span className="text-xs text-muted-foreground whitespace-nowrap">
+                                            Available: {stock.quantity}
+                                          </span>
+                                        </div>
+                                      </CommandItem>
+                                    ))}
+                                  </CommandGroup>
+                                </CommandList>
+                              </Command>
+                            </PopoverContent>
+                          </Popover>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={accessoryForm.control}
+                    name="quantity"
+                    render={({ field }) => (
+                      <FormItem className="space-y-2">
+                        <FormLabel>Quantity</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            inputMode="numeric"
+                            min={1}
+                            max={selectedAccessoryStock?.quantity ?? undefined}
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <div className="space-y-2">
+                    <FormLabel htmlFor="fromAccessory">From Branch</FormLabel>
+                    <Input id="fromAccessory" value={fromBranchName} placeholder="Current branch" disabled />
+                  </div>
+
+                  <FormField
+                    control={accessoryForm.control}
+                    name="toBranchId"
+                    render={({ field }) => (
+                      <FormItem className="space-y-2">
+                        <FormLabel htmlFor="toAccessory">To Branch</FormLabel>
+                        <FormControl>
+                          <Select value={field.value} onValueChange={field.onChange}>
+                            <SelectTrigger id="toAccessory">
+                              <SelectValue placeholder="Select destination branch" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {orgsLoading ? (
+                                <SelectItem value="__loading" disabled>
+                                  Loading…
+                                </SelectItem>
+                              ) : toBranchOptions.length === 0 ? (
+                                <SelectItem value="__none" disabled>
+                                  No other branches
+                                </SelectItem>
+                              ) : (
+                                toBranchOptions.map((org) => (
+                                  <SelectItem key={org.id} value={org.id}>
+                                    {org.name}
+                                  </SelectItem>
+                                ))
+                              )}
+                            </SelectContent>
+                          </Select>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={accessoryForm.control}
+                    name="reason"
+                    render={({ field }) => (
+                      <FormItem className="space-y-2">
+                        <FormLabel>Transfer Reason</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Why is this transfer needed?" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={accessoryForm.control}
+                    name="notes"
+                    render={({ field }) => (
+                      <FormItem className="space-y-2">
+                        <FormLabel>Additional Notes (Optional)</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Any additional information" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Transfer Summary</CardTitle>
+                  <CardDescription>Review before submitting</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="rounded-lg border p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-muted-foreground">Accessory</span>
+                      <span className="text-sm font-semibold">
+                        {selectedAccessoryStock?.accessory.name ?? "—"}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-muted-foreground">Quantity</span>
+                      <span className="text-sm font-semibold">
+                        {accessoryForm.watch("quantity")?.toLocaleString?.() ?? "—"}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-muted-foreground">From</span>
+                      <span className="text-sm font-semibold">{fromBranchName || "—"}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-muted-foreground">To</span>
+                      <span className="text-sm font-semibold">{accessoryToBranchName || "—"}</span>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2 justify-end">
+                    <Button type="button" variant="outline" onClick={handleCancel}>
+                      Cancel
+                    </Button>
+                    <Button
+                      type="submit"
+                      disabled={!accessoryForm.formState.isValid || createAccessoryTransfer.isPending}
+                    >
+                      {createAccessoryTransfer.isPending ? "Submitting…" : "Submit Transfer"}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </form>
+          </Form>
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }

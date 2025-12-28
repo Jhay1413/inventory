@@ -21,7 +21,14 @@ import {
 } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { useTransfers } from "@/app/queries/transfers.queries"
+import { useAccessoryTransfers } from "@/app/queries/accessory-transfers.queries"
 import { TransferStatus } from "@/types/api/transfers"
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs"
 
 function statusClass(status: string) {
   switch (status) {
@@ -49,7 +56,21 @@ export default function TransferHistoryPage() {
     offset: 0,
   })
 
+  const {
+    data: accessoryData,
+    isLoading: accessoryLoading,
+    error: accessoryError,
+  } = useAccessoryTransfers(
+    {
+      direction: "all",
+      limit: 100,
+      offset: 0,
+    },
+    { enabled: true }
+  )
+
   const allTransfers = data?.transfers ?? []
+  const allAccessoryTransfers = accessoryData?.transfers ?? []
 
   const visibleTransfers = React.useMemo(() => {
     const normalized = search.trim().toLowerCase()
@@ -66,6 +87,21 @@ export default function TransferHistoryPage() {
     })
   }, [allTransfers, search])
 
+  const visibleAccessoryTransfers = React.useMemo(() => {
+    const normalized = search.trim().toLowerCase()
+
+    if (!normalized) return allAccessoryTransfers
+
+    return allAccessoryTransfers.filter((t) => {
+      return (
+        t.id.toLowerCase().includes(normalized) ||
+        t.accessory.name.toLowerCase().includes(normalized) ||
+        t.fromBranch.name.toLowerCase().includes(normalized) ||
+        t.toBranch.name.toLowerCase().includes(normalized)
+      )
+    })
+  }, [allAccessoryTransfers, search])
+
   return (
     <div className="flex flex-col gap-4 p-4 md:gap-6 md:p-6">
       <div className="flex items-center justify-between">
@@ -81,11 +117,7 @@ export default function TransferHistoryPage() {
         <CardHeader>
           <CardTitle>Past Transfers</CardTitle>
           <CardDescription>
-            {isLoading
-              ? "Loading…"
-              : error
-                ? "Failed to load transfer history"
-                : `${visibleTransfers.length} transfer(s)`}
+            View gadget and accessory transfer history
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -100,56 +132,132 @@ export default function TransferHistoryPage() {
               />
             </div>
           </div>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Transfer ID</TableHead>
-                <TableHead>Date Requested</TableHead>
-                <TableHead>Product</TableHead>
-                <TableHead>From</TableHead>
-                <TableHead>To</TableHead>
-                <TableHead>Updated</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {visibleTransfers.map((t) => (
-                <TableRow key={t.id}>
-                  <TableCell className="font-mono font-semibold">{t.id}</TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <IconCalendar className="h-4 w-4 text-muted-foreground" />
-                      {new Date(t.createdAt).toLocaleDateString()}
-                    </div>
-                  </TableCell>
-                  <TableCell className="font-medium">
-                    {t.product.productModel.productType.name} {t.product.productModel.name}
-                  </TableCell>
-                  <TableCell>{t.fromBranch.name}</TableCell>
-                  <TableCell>{t.toBranch.name}</TableCell>
-                  <TableCell>{new Date(t.updatedAt).toLocaleDateString()}</TableCell>
-                  <TableCell>
-                    <Badge variant="default" className={statusClass(t.status)}>
-                      {t.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <Button variant="ghost" size="sm">
-                      View Details
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-              {!isLoading && visibleTransfers.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={8} className="text-center text-muted-foreground">
-                    No transfers found.
-                  </TableCell>
-                </TableRow>
-              ) : null}
-            </TableBody>
-          </Table>
+          <Tabs defaultValue="gadgets" className="w-full">
+            <TabsList>
+              <TabsTrigger value="gadgets">Gadgets</TabsTrigger>
+              <TabsTrigger value="accessories">Accessories</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="gadgets" className="mt-4">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Transfer ID</TableHead>
+                    <TableHead>Date Requested</TableHead>
+                    <TableHead>Product</TableHead>
+                    <TableHead>From</TableHead>
+                    <TableHead>To</TableHead>
+                    <TableHead>Updated</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {visibleTransfers.map((t) => (
+                    <TableRow key={t.id}>
+                      <TableCell className="font-mono font-semibold">{t.id}</TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <IconCalendar className="h-4 w-4 text-muted-foreground" />
+                          {new Date(t.createdAt).toLocaleDateString()}
+                        </div>
+                      </TableCell>
+                      <TableCell className="font-medium">
+                        {t.product.productModel.productType.name} {t.product.productModel.name}
+                      </TableCell>
+                      <TableCell>{t.fromBranch.name}</TableCell>
+                      <TableCell>{t.toBranch.name}</TableCell>
+                      <TableCell>{new Date(t.updatedAt).toLocaleDateString()}</TableCell>
+                      <TableCell>
+                        <Badge variant="default" className={statusClass(t.status)}>
+                          {t.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button variant="ghost" size="sm">
+                          View Details
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  {!isLoading && !error && visibleTransfers.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={8} className="text-center text-muted-foreground">
+                        No gadget transfers found.
+                      </TableCell>
+                    </TableRow>
+                  ) : null}
+                  {error ? (
+                    <TableRow>
+                      <TableCell colSpan={8} className="text-center text-destructive">
+                        Failed to load gadget transfer history.
+                      </TableCell>
+                    </TableRow>
+                  ) : null}
+                </TableBody>
+              </Table>
+            </TabsContent>
+
+            <TabsContent value="accessories" className="mt-4">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Transfer ID</TableHead>
+                    <TableHead>Date Requested</TableHead>
+                    <TableHead>Accessory</TableHead>
+                    <TableHead className="text-center">Qty</TableHead>
+                    <TableHead>From</TableHead>
+                    <TableHead>To</TableHead>
+                    <TableHead>Updated</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {visibleAccessoryTransfers.map((t) => (
+                    <TableRow key={t.id}>
+                      <TableCell className="font-mono font-semibold">{t.id}</TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <IconCalendar className="h-4 w-4 text-muted-foreground" />
+                          {new Date(t.createdAt).toLocaleDateString()}
+                        </div>
+                      </TableCell>
+                      <TableCell className="font-medium">{t.accessory.name}</TableCell>
+                      <TableCell className="text-center">{t.quantity.toLocaleString()}</TableCell>
+                      <TableCell>{t.fromBranch.name}</TableCell>
+                      <TableCell>{t.toBranch.name}</TableCell>
+                      <TableCell>{new Date(t.updatedAt).toLocaleDateString()}</TableCell>
+                      <TableCell>
+                        <Badge variant="default" className={statusClass(t.status)}>
+                          {t.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button variant="ghost" size="sm">
+                          View Details
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  {!accessoryLoading && !accessoryError && visibleAccessoryTransfers.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={9} className="text-center text-muted-foreground">
+                        No accessory transfers found.
+                      </TableCell>
+                    </TableRow>
+                  ) : null}
+                  {accessoryError ? (
+                    <TableRow>
+                      <TableCell colSpan={9} className="text-center text-destructive">
+                        Failed to load accessory transfer history.
+                      </TableCell>
+                    </TableRow>
+                  ) : null}
+                </TableBody>
+              </Table>
+            </TabsContent>
+          </Tabs>
         </CardContent>
       </Card>
     </div>

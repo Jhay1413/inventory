@@ -36,7 +36,7 @@ export function CreateUserModal() {
       <DialogTrigger asChild>
         <Button>Add user</Button>
       </DialogTrigger>
-      <DialogContent>
+      <DialogContent className="w-[calc(100vw-2rem)] sm:max-w-2xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Add user</DialogTitle>
         </DialogHeader>

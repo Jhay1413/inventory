@@ -10,6 +10,7 @@ export const ProductCondition = {
 export const ProductAvailability = {
   AVAILABLE: "Available",
   SOLD: "Sold",
+  RETURNED: "Returned",
 } as const
 
 export const ProductSchema = z.object({
@@ -21,7 +22,9 @@ export const ProductSchema = z.object({
   storage: z.number().int(),
   imei: z.string().trim().min(1).max(15),
   condition: z.enum([ProductCondition.BRAND_NEW, ProductCondition.SECOND_HAND] as const),
-  availability: z.enum([ProductAvailability.AVAILABLE, ProductAvailability.SOLD] as const),
+  availability: z.enum(
+    [ProductAvailability.AVAILABLE, ProductAvailability.SOLD, ProductAvailability.RETURNED] as const
+  ),
   isDefective: z.boolean(),
   defectNotes: z.string().nullable().optional(),
   status: z.string(),
@@ -62,7 +65,11 @@ export const ProductListQuerySchema = z.object({
   productTypeId: z.string().min(1).optional(),
   productModelId: z.string().min(1).optional(),
   condition: z.enum([ProductCondition.BRAND_NEW, ProductCondition.SECOND_HAND] as const).optional(),
-  availability: z.enum([ProductAvailability.AVAILABLE, ProductAvailability.SOLD] as const).optional(),
+  availability: z
+    .enum(
+      [ProductAvailability.AVAILABLE, ProductAvailability.SOLD, ProductAvailability.RETURNED] as const
+    )
+    .optional(),
   isDefective: z
     .preprocess((v) => {
       if (v === "true") return true

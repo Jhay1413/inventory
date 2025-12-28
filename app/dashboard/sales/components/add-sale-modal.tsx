@@ -37,6 +37,7 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
+  CommandSeparator,
 } from "@/components/ui/command"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -50,8 +51,10 @@ import {
   InvoiceStatus,
 } from "@/types/api/invoices"
 import type { ProductWithRelations } from "@/types/api/products"
+import type { AccessoryStockWithRelations } from "@/types/api/accessory-stock"
 import { cn } from "@/lib/utils"
 import { useCreateInvoice, useInvoiceProductsSearch } from "@/app/queries/invoices.queries"
+import { useAccessoryStockList } from "@/app/queries/accessory-stock.queries"
 
 const saleFormSchema = CreateInvoiceSchema.extend({
   status: z
@@ -65,6 +68,11 @@ const saleFormSchema = CreateInvoiceSchema.extend({
 })
 
 type SaleFormValues = z.infer<typeof saleFormSchema>
+
+type SelectedAccessoryFreebie = {
+  stock: AccessoryStockWithRelations
+  quantity: number
+}
 
 function formatProductLabel(p: ProductWithRelations) {
   const type = p.productModel?.productType?.name ?? ""
@@ -81,6 +89,7 @@ export function AddSaleModal() {
   const [freebiesPopoverOpen, setFreebiesPopoverOpen] = React.useState(false)
   const [freebiesSearch, setFreebiesSearch] = React.useState("")
   const [selectedFreebies, setSelectedFreebies] = React.useState<ProductWithRelations[]>([])
+  const [selectedAccessoryFreebies, setSelectedAccessoryFreebies] = React.useState<SelectedAccessoryFreebie[]>([])
 
   const createInvoice = useCreateInvoice()
 
@@ -89,6 +98,7 @@ export function AddSaleModal() {
     defaultValues: {
       productId: "",
       freebieProductIds: [],
+      freebieAccessoryItems: [],
       salePrice: 0,
       paymentType: InvoicePaymentType.CASH,
       status: InvoiceStatus.PAID,
@@ -101,6 +111,7 @@ export function AddSaleModal() {
 
   const selectedProductId = form.watch("productId")
   const selectedFreebieIds = form.watch("freebieProductIds") ?? []
+  const selectedFreebieAccessoryItems = form.watch("freebieAccessoryItems") ?? []
 
   const normalizedSearch = productSearch.trim() || undefined
   const productsQuery = useInvoiceProductsSearch(
@@ -113,6 +124,8 @@ export function AddSaleModal() {
     { search: normalizedFreebiesSearch, limit: 10, offset: 0 },
     { enabled: open && Boolean(normalizedFreebiesSearch) }
   )
+
+  const accessoryStocksQuery = useAccessoryStockList({}, { enabled: open })
 
   const products = productsQuery.data?.products ?? []
   React.useEffect(() => {
@@ -129,6 +142,12 @@ export function AddSaleModal() {
   }, [selectedFreebieIds.length])
 
   React.useEffect(() => {
+    if (!selectedFreebieAccessoryItems.length) {
+      setSelectedAccessoryFreebies([])
+    }
+  }, [selectedFreebieAccessoryItems.length])
+
+  React.useEffect(() => {
     if (open) return
     form.reset()
     setProductSearch("")
@@ -138,6 +157,7 @@ export function AddSaleModal() {
     setFreebiesSearch("")
     setFreebiesPopoverOpen(false)
     setSelectedFreebies([])
+    setSelectedAccessoryFreebies([])
   }, [open, form])
 
   function handleImeiSearchChange(raw: string) {
@@ -155,6 +175,8 @@ export function AddSaleModal() {
       productId: values.productId,
       freebieProductIds:
         values.freebieProductIds?.filter((id) => id && id !== values.productId) ?? undefined,
+      freebieAccessoryItems:
+        values.freebieAccessoryItems?.filter((i) => i.accessoryId && i.quantity > 0) ?? undefined,
       salePrice: values.salePrice,
       paymentType: values.paymentType,
       status: values.status,
@@ -173,7 +195,7 @@ export function AddSaleModal() {
           New Sale
         </Button>
       </DialogTrigger>
-      <DialogContent className="w-full sm:max-w-4xl">
+      <DialogContent className="w-[calc(100vw-2rem)] sm:max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>New Sale</DialogTitle>
           <DialogDescription>Search product by IMEI and save the sale.</DialogDescription>
@@ -288,8 +310,8 @@ export function AddSaleModal() {
                         <Popover open={freebiesPopoverOpen} onOpenChange={setFreebiesPopoverOpen}>
                           <PopoverTrigger asChild>
                             <Button variant="outline" role="combobox" className="justify-between">
-                              {selectedFreebies.length
-                                ? `Freebies (${selectedFreebies.length})`
+                              {selectedFreebies.length || selectedAccessoryFreebies.length
+                                ? `Freebies (${selectedFreebies.length + selectedAccessoryFreebies.length})`
                                 : "Select freebies (optional)"}
                               <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                             </Button>
@@ -309,7 +331,7 @@ export function AddSaleModal() {
                                       ? "No product found"
                                       : "Type to search"}
                                 </CommandEmpty>
-                                <CommandGroup>
+                                <CommandGroup heading="Products">
                                   {(freebiesQuery.data?.products ?? []).map((p) => {
                                     const disabled = p.id === selectedProductId
                                     const checked = selectedFreebieIds.includes(p.id)
@@ -351,6 +373,67 @@ export function AddSaleModal() {
                                     )
                                   })}
                                 </CommandGroup>
+
+                                <CommandSeparator />
+
+                                <CommandGroup heading="Accessories">
+                                  {(accessoryStocksQuery.data?.stocks ?? [])
+                                    .filter((s) => s.quantity > 0)
+                                    .filter((s) => {
+                                      if (!normalizedFreebiesSearch) return true
+                                      return s.accessory.name
+                                        .toLowerCase()
+                                        .includes(normalizedFreebiesSearch.toLowerCase())
+                                    })
+                                    .slice(0, 20)
+                                    .map((stock) => {
+                                      const checked = selectedFreebieAccessoryItems.some(
+                                        (x) => x.accessoryId === stock.accessoryId
+                                      )
+
+                                      return (
+                                        <CommandItem
+                                          key={stock.id}
+                                          value={stock.accessory.name}
+                                          onSelect={() => {
+                                            const next = checked
+                                              ? selectedFreebieAccessoryItems.filter(
+                                                  (x) => x.accessoryId !== stock.accessoryId
+                                                )
+                                              : [
+                                                  ...selectedFreebieAccessoryItems,
+                                                  { accessoryId: stock.accessoryId, quantity: 1 },
+                                                ]
+
+                                            form.setValue("freebieAccessoryItems", next, {
+                                              shouldDirty: true,
+                                              shouldValidate: true,
+                                            })
+
+                                            setSelectedAccessoryFreebies((prev) => {
+                                              if (checked) {
+                                                return prev.filter((x) => x.stock.accessoryId !== stock.accessoryId)
+                                              }
+                                              return [...prev, { stock, quantity: 1 }]
+                                            })
+                                          }}
+                                        >
+                                          <Check
+                                            className={cn(
+                                              "mr-2 h-4 w-4",
+                                              checked ? "opacity-100" : "opacity-0"
+                                            )}
+                                          />
+                                          <div className="flex flex-col">
+                                            <span className="text-sm font-medium">{stock.accessory.name}</span>
+                                            <span className="text-xs text-muted-foreground">
+                                              Available: {stock.quantity}
+                                            </span>
+                                          </div>
+                                        </CommandItem>
+                                      )
+                                    })}
+                                </CommandGroup>
                               </CommandList>
                             </Command>
                           </PopoverContent>
@@ -390,6 +473,70 @@ export function AddSaleModal() {
                           No freebies selected.
                         </p>
                       )}
+
+                      {selectedAccessoryFreebies.length ? (
+                        <div className="mt-3 space-y-2">
+                          {selectedAccessoryFreebies.map(({ stock, quantity }) => (
+                            <div key={stock.accessoryId} className="flex items-center gap-2">
+                              <Badge variant="outline" className="flex-1 justify-between gap-2">
+                                <span className="max-w-[220px] truncate">{stock.accessory.name}</span>
+                                <span className="text-xs text-muted-foreground">In stock: {stock.quantity}</span>
+                              </Badge>
+                              <Input
+                                type="number"
+                                inputMode="numeric"
+                                className="w-24"
+                                min={1}
+                                max={stock.quantity}
+                                value={quantity}
+                                onChange={(e) => {
+                                  const raw = Number(e.target.value)
+                                  const nextQty = Math.max(1, Math.min(stock.quantity, Math.trunc(raw || 1)))
+
+                                  setSelectedAccessoryFreebies((prev) =>
+                                    prev.map((x) =>
+                                      x.stock.accessoryId === stock.accessoryId
+                                        ? { ...x, quantity: nextQty }
+                                        : x
+                                    )
+                                  )
+
+                                  const next = (form.getValues("freebieAccessoryItems") ?? []).map((x) =>
+                                    x.accessoryId === stock.accessoryId
+                                      ? { ...x, quantity: nextQty }
+                                      : x
+                                  )
+
+                                  form.setValue("freebieAccessoryItems", next, {
+                                    shouldDirty: true,
+                                    shouldValidate: true,
+                                  })
+                                }}
+                              />
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                                onClick={() => {
+                                  const next = selectedFreebieAccessoryItems.filter(
+                                    (x) => x.accessoryId !== stock.accessoryId
+                                  )
+                                  form.setValue("freebieAccessoryItems", next, {
+                                    shouldDirty: true,
+                                    shouldValidate: true,
+                                  })
+                                  setSelectedAccessoryFreebies((prev) =>
+                                    prev.filter((x) => x.stock.accessoryId !== stock.accessoryId)
+                                  )
+                                }}
+                              >
+                                <X className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                      ) : null}
                     </FormItem>
                   )}
                 />
@@ -532,11 +679,17 @@ export function AddSaleModal() {
 
                 <div className="pt-2">
                   <div className="text-xs font-medium text-muted-foreground">Freebies</div>
-                  {selectedFreebies.length ? (
+                  {selectedFreebies.length || selectedAccessoryFreebies.length ? (
                     <div className="mt-2 flex flex-wrap gap-2">
                       {selectedFreebies.map((p) => (
                         <Badge key={p.id} variant="outline" className="max-w-full">
                           <span className="font-mono text-xs">{p.imei}</span>
+                        </Badge>
+                      ))}
+                      {selectedAccessoryFreebies.map(({ stock, quantity }) => (
+                        <Badge key={stock.accessoryId} variant="outline" className="max-w-full">
+                          <span className="text-xs">{stock.accessory.name}</span>
+                          <span className="ml-2 text-xs text-muted-foreground">x{quantity}</span>
                         </Badge>
                       ))}
                     </div>

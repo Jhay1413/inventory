@@ -109,7 +109,7 @@ export function UpdateInvoiceModal({ invoiceId }: { invoiceId: string }) {
         Edit
       </Button>
 
-      <DialogContent>
+      <DialogContent className="w-[calc(100vw-2rem)] sm:max-w-xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Edit sale</DialogTitle>
         </DialogHeader>
