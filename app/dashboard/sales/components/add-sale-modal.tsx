@@ -54,7 +54,7 @@ import type { ProductWithRelations } from "@/types/api/products"
 import type { AccessoryStockWithRelations } from "@/types/api/accessory-stock"
 import { cn } from "@/lib/utils"
 import { useCreateInvoice, useInvoiceProductsSearch } from "@/app/queries/invoices.queries"
-import { useAccessoryStockList } from "@/app/queries/accessory-stock.queries"
+import { useAccessoryStockList, useAccessoryStockForActiveBranch } from "@/app/queries/accessory-stock.queries"
 
 const saleFormSchema = CreateInvoiceSchema.extend({
   status: z
@@ -126,6 +126,7 @@ export function AddSaleModal() {
   )
 
   const accessoryStocksQuery = useAccessoryStockList({}, { enabled: open })
+  const accessoryStocksBranchQuery = useAccessoryStockForActiveBranch({}, { enabled: open })
 
   const products = productsQuery.data?.products ?? []
   React.useEffect(() => {
@@ -377,7 +378,7 @@ export function AddSaleModal() {
                                 <CommandSeparator />
 
                                 <CommandGroup heading="Accessories">
-                                  {(accessoryStocksQuery.data?.stocks ?? [])
+                                  {(accessoryStocksBranchQuery.data?.stocks ?? [])
                                     .filter((s) => s.quantity > 0)
                                     .filter((s) => {
                                       if (!normalizedFreebiesSearch) return true

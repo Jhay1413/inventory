@@ -27,8 +27,8 @@ export const gadgetFormBaseSchema = z.object({
   color: z.string().min(1, {
     message: "Color is required",
   }),
-  ram: z.coerce.number().int().min(1, {
-    message: "RAM is required",
+  ram: z.coerce.number().int().min(0, {
+    message: "RAM must be 0 or greater",
   }),
   storage: z.coerce.number().int().min(0, {
     message: "Storage is required",
