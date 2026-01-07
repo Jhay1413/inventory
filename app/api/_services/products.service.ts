@@ -95,6 +95,17 @@ export async function updateProduct(id: string, input: Record<string, unknown>) 
 }
 
 export async function deleteProduct(id: string) {
+  const product = await dal.getProductById(id)
+  if (!product) {
+    throw new Error("Product not found")
+  }
+
+  // Check if product is associated with an invoice (either as main product or invoice item)
+  const hasInvoice = product.invoice || (product.invoiceItems && product.invoiceItems.length > 0)
+  if (hasInvoice) {
+    throw new Error("Cannot delete product. This product has an associated invoice. Please delete or cancel the invoice first.")
+  }
+
   return dal.deleteProduct(id)
 }
 
