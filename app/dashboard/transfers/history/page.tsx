@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { IconCalendar, IconSearch } from "@tabler/icons-react"
+import { IconCalendar, IconSearch, IconChevronLeft, IconChevronRight } from "@tabler/icons-react"
 import { Input } from "@/components/ui/input"
 import {
   Table,
@@ -55,14 +55,18 @@ function statusClass(status: string) {
 }
 
 export default function TransferHistoryPage() {
+  const PER_PAGE = 25
+
   const [search, setSearch] = React.useState("")
+  const [gadgetsPage, setGadgetsPage] = React.useState(1)
+  const [accessoriesPage, setAccessoriesPage] = React.useState(1)
   const [selectedTransfer, setSelectedTransfer] = React.useState<typeof allTransfers[0] | null>(null)
   const [selectedAccessoryTransfer, setSelectedAccessoryTransfer] = React.useState<typeof allAccessoryTransfers[0] | null>(null)
 
   const { data, isLoading, error } = useTransfers({
     direction: "all",
-    limit: 100,
-    offset: 0,
+    limit: PER_PAGE,
+    offset: (gadgetsPage - 1) * PER_PAGE,
   })
 
   const {
@@ -72,14 +76,28 @@ export default function TransferHistoryPage() {
   } = useAccessoryTransfers(
     {
       direction: "all",
-      limit: 100,
-      offset: 0,
+      limit: PER_PAGE,
+      offset: (accessoriesPage - 1) * PER_PAGE,
     },
     { enabled: true }
   )
 
   const allTransfers = data?.transfers ?? []
   const allAccessoryTransfers = accessoryData?.transfers ?? []
+
+  const gadgetsTotal = data?.pagination.total ?? 0
+  const gadgetsPageCount = Math.max(1, Math.ceil(gadgetsTotal / PER_PAGE))
+
+  const accessoriesTotal = accessoryData?.pagination.total ?? 0
+  const accessoriesPageCount = Math.max(1, Math.ceil(accessoriesTotal / PER_PAGE))
+
+  React.useEffect(() => {
+    setGadgetsPage(1)
+  }, [search])
+
+  React.useEffect(() => {
+    setAccessoriesPage(1)
+  }, [search])
 
   const visibleTransfers = React.useMemo(() => {
     const normalized = search.trim().toLowerCase()
@@ -209,6 +227,32 @@ export default function TransferHistoryPage() {
                   ) : null}
                 </TableBody>
               </Table>
+
+              <div className="mt-4 flex items-center justify-between">
+                <div className="text-sm text-muted-foreground">
+                  Page {gadgetsPage} of {gadgetsPageCount}
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setGadgetsPage((p) => Math.max(1, p - 1))}
+                    disabled={gadgetsPage <= 1 || isLoading}
+                  >
+                    <span className="sr-only">Previous page</span>
+                    <IconChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setGadgetsPage((p) => Math.min(gadgetsPageCount, p + 1))}
+                    disabled={gadgetsPage >= gadgetsPageCount || isLoading}
+                  >
+                    <span className="sr-only">Next page</span>
+                    <IconChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
             </TabsContent>
 
             <TabsContent value="accessories" className="mt-4">
@@ -273,6 +317,32 @@ export default function TransferHistoryPage() {
                   ) : null}
                 </TableBody>
               </Table>
+
+              <div className="mt-4 flex items-center justify-between">
+                <div className="text-sm text-muted-foreground">
+                  Page {accessoriesPage} of {accessoriesPageCount}
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setAccessoriesPage((p) => Math.max(1, p - 1))}
+                    disabled={accessoriesPage <= 1 || accessoryLoading}
+                  >
+                    <span className="sr-only">Previous page</span>
+                    <IconChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setAccessoriesPage((p) => Math.min(accessoriesPageCount, p + 1))}
+                    disabled={accessoriesPage >= accessoriesPageCount || accessoryLoading}
+                  >
+                    <span className="sr-only">Next page</span>
+                    <IconChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
             </TabsContent>
           </Tabs>
         </CardContent>
@@ -401,7 +471,7 @@ export default function TransferHistoryPage() {
 
       {/* Accessory Transfer Details Modal */}
       <Dialog open={!!selectedAccessoryTransfer} onOpenChange={(open) => !open && setSelectedAccessoryTransfer(null)}>
-        <DialogContent className="max-w-4xl">
+        <DialogContent className="lg:max-w-4xl">
           <DialogHeader>
             <DialogTitle>Accessory Transfer Details</DialogTitle>
             <DialogDescription>
