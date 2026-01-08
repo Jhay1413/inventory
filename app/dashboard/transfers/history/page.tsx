@@ -20,6 +20,13 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { useTransfers } from "@/app/queries/transfers.queries"
 import { useAccessoryTransfers } from "@/app/queries/accessory-transfers.queries"
 import { TransferStatus } from "@/types/api/transfers"
@@ -49,6 +56,8 @@ function statusClass(status: string) {
 
 export default function TransferHistoryPage() {
   const [search, setSearch] = React.useState("")
+  const [selectedTransfer, setSelectedTransfer] = React.useState<typeof allTransfers[0] | null>(null)
+  const [selectedAccessoryTransfer, setSelectedAccessoryTransfer] = React.useState<typeof allAccessoryTransfers[0] | null>(null)
 
   const { data, isLoading, error } = useTransfers({
     direction: "all",
@@ -174,7 +183,11 @@ export default function TransferHistoryPage() {
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right">
-                        <Button variant="ghost" size="sm">
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={() => setSelectedTransfer(t)}
+                        >
                           View Details
                         </Button>
                       </TableCell>
@@ -234,7 +247,11 @@ export default function TransferHistoryPage() {
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right">
-                        <Button variant="ghost" size="sm">
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={() => setSelectedAccessoryTransfer(t)}
+                        >
                           View Details
                         </Button>
                       </TableCell>
@@ -260,6 +277,220 @@ export default function TransferHistoryPage() {
           </Tabs>
         </CardContent>
       </Card>
+
+      {/* Gadget Transfer Details Modal */}
+      <Dialog open={!!selectedTransfer} onOpenChange={(open) => !open && setSelectedTransfer(null)}>
+        <DialogContent className="lg:max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>Transfer Details</DialogTitle>
+            <DialogDescription>
+              Transfer ID: {selectedTransfer?.id}
+            </DialogDescription>
+          </DialogHeader>
+          {selectedTransfer && (
+            <div className="space-y-6">
+              <div className="grid gap-4 md:grid-cols-2">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-sm">Product Information</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Type:</span>
+                      <span className="font-medium">{selectedTransfer.product.productModel.productType.name}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Model:</span>
+                      <span className="font-medium">{selectedTransfer.product.productModel.name}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">IMEI:</span>
+                      <span className="font-medium font-mono">{selectedTransfer.product.imei}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Condition:</span>
+                      <span className="font-medium">{selectedTransfer.product.condition}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Color:</span>
+                      <span className="font-medium">{selectedTransfer.product.color}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">RAM:</span>
+                      <span className="font-medium">{selectedTransfer.product.ram} GB</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Storage:</span>
+                      <span className="font-medium">{selectedTransfer.product.storage} GB</span>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-sm">Transfer Information</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">From Branch:</span>
+                      <span className="font-medium">{selectedTransfer.fromBranch.name}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">To Branch:</span>
+                      <span className="font-medium">{selectedTransfer.toBranch.name}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Status:</span>
+                      <Badge variant="default" className={statusClass(selectedTransfer.status)}>
+                        {selectedTransfer.status}
+                      </Badge>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Requested:</span>
+                      <span className="font-medium">{new Date(selectedTransfer.createdAt).toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Last Updated:</span>
+                      <span className="font-medium">{new Date(selectedTransfer.updatedAt).toLocaleString()}</span>
+                    </div>
+                    {selectedTransfer.approvedAt && (
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Approved:</span>
+                        <span className="font-medium">{new Date(selectedTransfer.approvedAt).toLocaleString()}</span>
+                      </div>
+                    )}
+                    {selectedTransfer.completedAt && (
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Completed:</span>
+                        <span className="font-medium">{new Date(selectedTransfer.completedAt).toLocaleString()}</span>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+
+              {(selectedTransfer.reason || selectedTransfer.notes) && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-sm">Additional Information</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2 text-sm">
+                    {selectedTransfer.reason && (
+                      <div>
+                        <span className="text-muted-foreground">Reason:</span>
+                        <p className="mt-1">{selectedTransfer.reason}</p>
+                      </div>
+                    )}
+                    {selectedTransfer.notes && (
+                      <div>
+                        <span className="text-muted-foreground">Notes:</span>
+                        <p className="mt-1">{selectedTransfer.notes}</p>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Accessory Transfer Details Modal */}
+      <Dialog open={!!selectedAccessoryTransfer} onOpenChange={(open) => !open && setSelectedAccessoryTransfer(null)}>
+        <DialogContent className="max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>Accessory Transfer Details</DialogTitle>
+            <DialogDescription>
+              Transfer ID: {selectedAccessoryTransfer?.id}
+            </DialogDescription>
+          </DialogHeader>
+          {selectedAccessoryTransfer && (
+            <div className="space-y-6">
+              <div className="grid gap-4 md:grid-cols-2">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-sm">Accessory Information</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Name:</span>
+                      <span className="font-medium">{selectedAccessoryTransfer.accessory.name}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Quantity:</span>
+                      <span className="font-medium">{selectedAccessoryTransfer.quantity.toLocaleString()}</span>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-sm">Transfer Information</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">From Branch:</span>
+                      <span className="font-medium">{selectedAccessoryTransfer.fromBranch.name}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">To Branch:</span>
+                      <span className="font-medium">{selectedAccessoryTransfer.toBranch.name}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Status:</span>
+                      <Badge variant="default" className={statusClass(selectedAccessoryTransfer.status)}>
+                        {selectedAccessoryTransfer.status}
+                      </Badge>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Requested:</span>
+                      <span className="font-medium">{new Date(selectedAccessoryTransfer.createdAt).toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Last Updated:</span>
+                      <span className="font-medium">{new Date(selectedAccessoryTransfer.updatedAt).toLocaleString()}</span>
+                    </div>
+                    {selectedAccessoryTransfer.approvedAt && (
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Approved:</span>
+                        <span className="font-medium">{new Date(selectedAccessoryTransfer.approvedAt).toLocaleString()}</span>
+                      </div>
+                    )}
+                    {selectedAccessoryTransfer.completedAt && (
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Completed:</span>
+                        <span className="font-medium">{new Date(selectedAccessoryTransfer.completedAt).toLocaleString()}</span>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+
+              {(selectedAccessoryTransfer.reason || selectedAccessoryTransfer.notes) && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-sm">Additional Information</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2 text-sm">
+                    {selectedAccessoryTransfer.reason && (
+                      <div>
+                        <span className="text-muted-foreground">Reason:</span>
+                        <p className="mt-1">{selectedAccessoryTransfer.reason}</p>
+                      </div>
+                    )}
+                    {selectedAccessoryTransfer.notes && (
+                      <div>
+                        <span className="text-muted-foreground">Notes:</span>
+                        <p className="mt-1">{selectedAccessoryTransfer.notes}</p>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

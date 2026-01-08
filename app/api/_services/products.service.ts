@@ -63,6 +63,12 @@ export async function createProduct(
     throw new Error("IMEI/Serial is required")
   }
 
+  // Check for duplicate IMEI before attempting to create
+  const exists = await dal.productExistsByImei(imei)
+  if (exists) {
+    throw new Error("A product with this IMEI/Serial already exists")
+  }
+
   const product = await dal.createProduct({
     ...rest,
     imei,

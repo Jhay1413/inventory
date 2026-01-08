@@ -65,6 +65,15 @@ function buildProductsWhere(filters: ProductFilters) {
     })
   }
 
+  // Exclude products with pending transfers
+  and.push({
+    transfers: {
+      none: {
+        status: "Pending",
+      },
+    },
+  })
+
   if (and.length > 0) {
     where.AND = and
   }
