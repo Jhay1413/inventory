@@ -41,6 +41,7 @@ export async function listTransfers(args: {
         fromBranch: { select: { id: true, name: true, slug: true } },
         toBranch: { select: { id: true, name: true, slug: true } },
         requestedBy: { select: { id: true, name: true, email: true } },
+        receivedBy: { select: { id: true, name: true, email: true } },
       },
     }),
   ])

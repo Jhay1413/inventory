@@ -67,6 +67,7 @@ export async function listAccessoryTransfers(args: {
         fromBranch: { select: { id: true, name: true, slug: true } },
         toBranch: { select: { id: true, name: true, slug: true } },
         requestedBy: { select: { id: true, name: true, email: true } },
+        receivedBy: { select: { id: true, name: true, email: true } },
       },
       orderBy: [{ createdAt: "desc" }],
       take: args.limit,

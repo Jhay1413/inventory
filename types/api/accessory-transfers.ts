@@ -69,6 +69,7 @@ export const AccessoryTransferWithRelationsSchema = AccessoryTransferSchema.exte
   fromBranch: OrganizationSchema,
   toBranch: OrganizationSchema,
   requestedBy: z.object({ id: z.string(), name: z.string(), email: z.string() }),
+  receivedBy: z.object({ id: z.string(), name: z.string(), email: z.string() }).nullable().optional(),
 })
 
 export type AccessoryTransferWithRelations = z.infer<typeof AccessoryTransferWithRelationsSchema>

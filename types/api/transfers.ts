@@ -73,6 +73,7 @@ export const TransferWithRelationsSchema = TransferSchema.extend({
   fromBranch: z.object({ id: z.string(), name: z.string(), slug: z.string() }),
   toBranch: z.object({ id: z.string(), name: z.string(), slug: z.string() }),
   requestedBy: z.object({ id: z.string(), name: z.string(), email: z.string() }),
+  receivedBy: z.object({ id: z.string(), name: z.string(), email: z.string() }).nullable().optional(),
 })
 
 export type TransferWithRelations = z.infer<typeof TransferWithRelationsSchema>
