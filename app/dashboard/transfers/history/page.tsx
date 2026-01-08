@@ -353,16 +353,10 @@ export default function TransferHistoryPage() {
                       <span className="text-muted-foreground">Last Updated:</span>
                       <span className="font-medium">{new Date(selectedTransfer.updatedAt).toLocaleString()}</span>
                     </div>
-                    {selectedTransfer.approvedAt && (
+                    {selectedTransfer.receivedAt && (
                       <div className="flex justify-between">
-                        <span className="text-muted-foreground">Approved:</span>
-                        <span className="font-medium">{new Date(selectedTransfer.approvedAt).toLocaleString()}</span>
-                      </div>
-                    )}
-                    {selectedTransfer.completedAt && (
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Completed:</span>
-                        <span className="font-medium">{new Date(selectedTransfer.completedAt).toLocaleString()}</span>
+                        <span className="text-muted-foreground">Received:</span>
+                        <span className="font-medium">{new Date(selectedTransfer.receivedAt).toLocaleString()}</span>
                       </div>
                     )}
                   </CardContent>
@@ -450,16 +444,10 @@ export default function TransferHistoryPage() {
                       <span className="text-muted-foreground">Last Updated:</span>
                       <span className="font-medium">{new Date(selectedAccessoryTransfer.updatedAt).toLocaleString()}</span>
                     </div>
-                    {selectedAccessoryTransfer.approvedAt && (
+                    {selectedAccessoryTransfer.receivedAt && (
                       <div className="flex justify-between">
-                        <span className="text-muted-foreground">Approved:</span>
-                        <span className="font-medium">{new Date(selectedAccessoryTransfer.approvedAt).toLocaleString()}</span>
-                      </div>
-                    )}
-                    {selectedAccessoryTransfer.completedAt && (
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Completed:</span>
-                        <span className="font-medium">{new Date(selectedAccessoryTransfer.completedAt).toLocaleString()}</span>
+                        <span className="text-muted-foreground">Received:</span>
+                        <span className="font-medium">{new Date(selectedAccessoryTransfer.receivedAt).toLocaleString()}</span>
                       </div>
                     )}
                   </CardContent>
