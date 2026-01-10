@@ -32,6 +32,7 @@ import { useInventory } from "@/app/queries/inventory.queries"
 import { useProductTypes } from "@/app/queries/product-types.queries"
 import { InventoryModelProductsModal } from "@/app/dashboard/inventory/components/inventory-model-products-modal"
 import { useAccessoryStockList } from "@/app/queries/accessory-stock.queries"
+import { useOrgContext } from "@/app/queries/org-context.queries"
 
 const MIN_STOCK_DEFAULT = 10
 
@@ -44,6 +45,9 @@ export default function InventoryPage() {
     productModelName: string
     productTypeName: string
   } | null>(null)
+
+  const { data: orgContext } = useOrgContext()
+  const isAdminOrganization = orgContext?.isAdminOrganization ?? false
 
   const { data: productTypesData } = useProductTypes()
 
@@ -59,6 +63,12 @@ export default function InventoryPage() {
   const { data: accessoryStockData, isLoading: accessoriesLoading } = useAccessoryStockList(
     {},
     { enabled: tab === "accessories" }
+  )
+
+  // For admin org, get warehouse (current branch) stock separately
+  const { data: warehouseStockData, isLoading: warehouseLoading } = useAccessoryStockList(
+    { branchId: orgContext?.activeOrganizationId },
+    { enabled: tab === "accessories" && isAdminOrganization }
   )
 
   const items = inventoryData?.items ?? []
@@ -260,6 +270,23 @@ export default function InventoryPage() {
         </TabsContent>
 
         <TabsContent value="accessories" className="mt-4">
+          {isAdminOrganization && (
+            <div className="grid gap-4 md:grid-cols-4 mb-4">
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Warehouse Stock</CardTitle>
+                  <IconBox className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">
+                    {warehouseLoading ? "..." : (warehouseStockData?.stocks ?? []).reduce((sum, s) => sum + s.quantity, 0)}
+                  </div>
+                  <p className="text-xs text-muted-foreground">Accessories in warehouse</p>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
           <Card>
             <CardHeader>
               <CardTitle>Accessories Inventory</CardTitle>

@@ -5,6 +5,9 @@ export const ProductStatsSchema = z.object({
   available: z.number(),
   sold: z.number(),
   brandNew: z.number(),
+  currentBranchStock: z.number(),
+  pendingTransfers: z.number(),
+  pendingAccessoryTransfers: z.number(),
 })
 
 export type ProductStats = z.infer<typeof ProductStatsSchema>

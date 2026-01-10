@@ -10,7 +10,8 @@ export async function handleGetProductStats(req: NextRequest) {
     }
 
     const branchId = isAdminOrganization ? undefined : activeOrganizationId
-    const stats = await service.getProductStats({ branchId })
+    const currentBranchId = activeOrganizationId // All orgs get their current branch stats
+    const stats = await service.getProductStats({ branchId, currentBranchId })
     return NextResponse.json({ stats })
   } catch {
     return NextResponse.json({ error: "Failed to fetch product stats" }, { status: 500 })

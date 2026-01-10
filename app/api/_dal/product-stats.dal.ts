@@ -22,3 +22,29 @@ export async function countSold(opts?: { branchId?: string }) {
 export async function countBrandNew(opts?: { branchId?: string }) {
   return prisma.product.count({ where: whereFor(opts, { condition: "BrandNew" }) })
 }
+
+export async function countCurrentBranch(branchId: string) {
+  return prisma.product.count({ where: { branchId } })
+}
+
+export async function countPendingTransfersFrom(branchId: string) {
+  return prisma.transfer.count({
+    where: {
+      fromBranchId: branchId,
+      status: "Pending",
+    },
+  })
+}
+
+export async function countPendingAccessoryTransfersFrom(branchId: string) {
+  const transfers = await prisma.accessoryTransfer.findMany({
+    where: {
+      fromBranchId: branchId,
+      status: "Pending",
+    },
+    select: {
+      quantity: true,
+    },
+  })
+  return transfers.reduce((sum, t) => sum + t.quantity, 0)
+}

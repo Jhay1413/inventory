@@ -37,6 +37,7 @@ import { useProductTypes } from "@/app/queries/product-types.queries"
 import { useProductStats } from "@/app/queries/product-stats.queries"
 import { useAccessoryStockList } from "@/app/queries/accessory-stock.queries"
 import { authClient } from "@/app/lib/auth-client"
+import { useOrgContext } from "@/app/queries/org-context.queries"
 
 export default function ProductsPage() {
   const PER_PAGE = 15
@@ -58,6 +59,7 @@ export default function ProductsPage() {
   >("all")
 
   const { data: activeOrganization } = authClient.useActiveOrganization()
+  const { data: orgContext } = useOrgContext()
 
   const activeOrganizationId = React.useMemo(() => {
     if (!activeOrganization || typeof activeOrganization !== "object") return undefined
@@ -123,6 +125,14 @@ export default function ProductsPage() {
   const createProduct = useCreateProduct()
   const { data: statsData, isLoading: statsLoading } = useProductStats()
 
+  const {
+    data: warehouseAccessoryData,
+    isLoading: warehouseAccessoryLoading,
+  } = useAccessoryStockList(
+    { branchId: activeOrganizationId },
+    { enabled: isAdminOrganization && !!activeOrganizationId }
+  )
+
   const accessoryStockFilters = React.useMemo(
     () => ({
       limit: PER_PAGE,
@@ -183,7 +193,59 @@ export default function ProductsPage() {
       </div>
 
       {/* Stats Cards */}
-      <ProductStatsCards stats={statsData?.stats} isLoading={statsLoading} />
+      <div className="space-y-4">
+        <ProductStatsCards stats={statsData?.stats} isLoading={statsLoading} />
+        <div className="grid gap-4 md:grid-cols-4">
+          {isAdminOrganization && (
+            <>
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Warehouse Gadgets</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">
+                    {statsLoading ? "..." : statsData?.stats?.currentBranchStock ?? 0}
+                  </div>
+                  <p className="text-xs text-muted-foreground">Gadgets in warehouse</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Warehouse Accessories</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">
+                    {warehouseAccessoryLoading ? "..." : (warehouseAccessoryData?.stocks ?? []).reduce((sum, s) => sum + s.quantity, 0)}
+                  </div>
+                  <p className="text-xs text-muted-foreground">Accessories in warehouse</p>
+                </CardContent>
+              </Card>
+            </>
+          )}
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Gadgets for Transfer</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {statsLoading ? "..." : statsData?.stats?.pendingTransfers ?? 0}
+              </div>
+              <p className="text-xs text-muted-foreground">Pending transfers from branch</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Accessories for Transfer</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {statsLoading ? "..." : statsData?.stats?.pendingAccessoryTransfers ?? 0}
+              </div>
+              <p className="text-xs text-muted-foreground">Pending transfers from branch</p>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
 
       <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)}>
         <TabsList>
