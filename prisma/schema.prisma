@@ -28,6 +28,7 @@ enum InvoicePaymentType {
   Cash
   Credit
   Installment
+  Bank
 }
 
 enum InvoiceStatus {

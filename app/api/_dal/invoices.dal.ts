@@ -78,7 +78,7 @@ export async function createInvoiceTx(args: {
   branchId: string
   createdById: string
   salePrice: number
-  paymentType: "Cash" | "Credit" | "Installment"
+  paymentType: "Cash" | "Credit" | "Installment" | "Bank"
   status: "Pending" | "PartiallyPaid" | "Paid" | "Cancelled"
   customerName?: string
   customerPhone?: string
@@ -266,7 +266,7 @@ export async function listInvoices(args: {
   offset: number
   search?: string
   status?: "Pending" | "PartiallyPaid" | "Paid" | "Cancelled"
-  paymentType?: "Cash" | "Credit" | "Installment"
+  paymentType?: "Cash" | "Credit" | "Installment" | "Bank"
   productTypeId?: string
   condition?: "BrandNew" | "SecondHand"
 }) {
@@ -348,19 +348,25 @@ export async function getInvoiceStats(args: { branchId?: string }) {
     status: { not: "Cancelled" as const },
   }
 
+  // Exclude pending invoices from sales stats
+  const salesWhere = {
+    ...baseWhere,
+    status: { notIn: ["Cancelled" as const, "Pending" as const] },
+  }
+
   const [totalAgg, todayAgg, weekAgg] = await prisma.$transaction([
     prisma.invoice.aggregate({
-      where: baseWhere,
+      where: salesWhere,
       _sum: { salePrice: true },
       _count: { _all: true },
     }),
     prisma.invoice.aggregate({
-      where: { ...baseWhere, createdAt: { gte: todayStart } },
+      where: { ...salesWhere, createdAt: { gte: todayStart } },
       _sum: { salePrice: true },
       _count: { _all: true },
     }),
     prisma.invoice.aggregate({
-      where: { ...baseWhere, createdAt: { gte: weekStart } },
+      where: { ...salesWhere, createdAt: { gte: weekStart } },
       _sum: { salePrice: true },
       _count: { _all: true },
     }),
@@ -376,12 +382,32 @@ export async function getInvoiceStats(args: { branchId?: string }) {
   }
 }
 
+export async function getPendingInvoiceStats(args: { branchId?: string }) {
+  const pendingWhere = {
+    branchId: args.branchId,
+    status: "Pending" as const,
+  }
+
+  const pendingAgg = await prisma.invoice.aggregate({
+    where: pendingWhere,
+    _sum: { salePrice: true },
+    _count: { _all: true },
+  })
+
+  return {
+    pendingSales: pendingAgg._sum.salePrice ?? 0,
+    pendingCount: pendingAgg._count._all ?? 0,
+  }
+}
+
 export async function updateInvoiceTx(args: {
   id: string
   branchId?: string
   data: {
+    freebieProductIds?: string[]
+    freebieAccessoryItems?: FreebieAccessoryItemInput[]
     salePrice?: number
-    paymentType?: "Cash" | "Credit" | "Installment"
+    paymentType?: "Cash" | "Credit" | "Installment" | "Bank"
     status?: "Pending" | "PartiallyPaid" | "Paid" | "Cancelled"
     customerName?: string
     customerPhone?: string
@@ -392,10 +418,17 @@ export async function updateInvoiceTx(args: {
     return await prisma.$transaction(async (tx) => {
       const existing = await tx.invoice.findFirst({
         where: { id: args.id, ...(args.branchId ? { branchId: args.branchId } : {}) },
-        include: {
+        select: {
+          id: true,
+          productId: true,
+          branchId: true,
+          createdById: true,
+          status: true,
+          paidAt: true,
+          cancelledAt: true,
           product: { select: { id: true, availability: true, branchId: true } },
-          items: { select: { productId: true } },
-          accessoryItems: { select: { accessoryId: true, quantity: true } },
+          items: { select: { id: true, productId: true, isFreebie: true } },
+          accessoryItems: { select: { id: true, accessoryId: true, quantity: true, isFreebie: true } },
           branch: { select: { id: true } },
         },
       })
@@ -409,11 +442,134 @@ export async function updateInvoiceTx(args: {
       }
 
       const nextStatus = args.data.status ?? existing.status
+      const branchIdForStock = existing.branch.id
 
+      // === HANDLE FREEBIE UPDATES ===
+      const updateFreebies = args.data.freebieProductIds !== undefined || args.data.freebieAccessoryItems !== undefined
+
+      if (updateFreebies) {
+        // Get old freebies
+        const oldFreebieProducts = existing.items.filter(item => item.isFreebie)
+        const oldFreebieProductIds = oldFreebieProducts.map(item => item.productId)
+        const oldFreebieAccessories = existing.accessoryItems.filter(item => item.isFreebie)
+
+        // Get new freebies
+        const newFreebieProductIds = Array.from(new Set(args.data.freebieProductIds ?? []))
+          .filter(id => id !== existing.product.id)
+        const newFreebieAccessoryItems = normalizeFreebieAccessoryItems(args.data.freebieAccessoryItems)
+
+        // STEP 1: Restore status of removed freebie products
+        if (oldFreebieProductIds.length > 0) {
+          await tx.product.updateMany({
+            where: { 
+              id: { in: oldFreebieProductIds },
+              availability: DbProductAvailability.Sold
+            },
+            data: { availability: DbProductAvailability.Available }
+          })
+        }
+
+        // STEP 2: Restore stock for removed accessory freebies
+        for (const item of oldFreebieAccessories) {
+          await tx.accessoryStock.update({
+            where: {
+              accessoryId_branchId: { accessoryId: item.accessoryId, branchId: branchIdForStock },
+            },
+            data: { quantity: { increment: item.quantity } }
+          })
+        }
+
+        // STEP 3: Delete all old freebie records
+        await tx.invoiceItem.deleteMany({
+          where: { invoiceId: args.id, isFreebie: true }
+        })
+        
+        await tx.invoiceAccessoryItem.deleteMany({
+          where: { invoiceId: args.id, isFreebie: true }
+        })
+
+        // STEP 4: Validate and insert new freebie products
+        if (newFreebieProductIds.length > 0) {
+          const freebies = await tx.product.findMany({
+            where: { id: { in: newFreebieProductIds } },
+            select: { id: true, branchId: true, availability: true },
+          })
+
+          if (freebies.length !== newFreebieProductIds.length) {
+            throw new Error("One or more freebie products not found")
+          }
+
+          for (const p of freebies) {
+            if (p.branchId !== branchIdForStock) {
+              throw new Error("Freebie product does not belong to the same branch")
+            }
+            if (p.availability !== DbProductAvailability.Available) {
+              throw new Error("Freebie product is not available")
+            }
+          }
+
+          // Insert new freebie product items
+          await tx.invoiceItem.createMany({
+            data: newFreebieProductIds.map(productId => ({
+              invoiceId: args.id,
+              productId,
+              unitPrice: 0,
+              discountAmount: 0,
+              netAmount: 0,
+              isFreebie: true,
+            }))
+          })
+
+          // Mark new freebie products as Sold
+          await tx.product.updateMany({
+            where: { id: { in: newFreebieProductIds } },
+            data: { availability: DbProductAvailability.Sold }
+          })
+
+          // Create audit logs
+          for (const productId of newFreebieProductIds) {
+            await createProductAuditLog(tx, {
+              productId,
+              action: "Sold",
+              actorUserId: existing.createdById,
+              invoiceId: args.id,
+              details: { isFreebie: true },
+            })
+          }
+        }
+
+        // STEP 5: Validate and insert new accessory freebies
+        if (newFreebieAccessoryItems.length > 0) {
+          for (const item of newFreebieAccessoryItems) {
+            const updated = await tx.accessoryStock.updateMany({
+              where: {
+                branchId: branchIdForStock,
+                accessoryId: item.accessoryId,
+                quantity: { gte: item.quantity },
+              },
+              data: { quantity: { decrement: item.quantity } },
+            })
+            
+            if (updated.count !== 1) {
+              throw new Error("Insufficient accessory stock for freebies")
+            }
+          }
+
+          // Insert new accessory freebie items
+          await tx.invoiceAccessoryItem.createMany({
+            data: newFreebieAccessoryItems.map(item => ({
+              invoiceId: args.id,
+              accessoryId: item.accessoryId,
+              quantity: item.quantity,
+              isFreebie: true,
+            }))
+          })
+        }
+      }
+
+      // === UPDATE INVOICE BASIC FIELDS ===
       const nextPaidAt = nextStatus === "Paid" ? existing.paidAt ?? new Date() : null
-
-      const nextCancelledAt =
-        nextStatus === "Cancelled" ? existing.cancelledAt ?? new Date() : null
+      const nextCancelledAt = nextStatus === "Cancelled" ? existing.cancelledAt ?? new Date() : null
 
       const invoice = await tx.invoice.update({
         where: { id: args.id },
@@ -430,15 +586,14 @@ export async function updateInvoiceTx(args: {
         include: invoiceInclude,
       })
 
-      const productIds = Array.from(
-        new Set([existing.product.id, ...existing.items.map((i) => i.productId)])
+      // === HANDLE STATUS CHANGES (main product + current freebies) ===
+      const currentProductIds = Array.from(
+        new Set([existing.product.id, ...invoice.items.map((i) => i.productId)])
       )
 
-      // Keep product availability consistent with invoice status (applies to main + freebies)
       await tx.product.updateMany({
-        // Do not override products that have moved into a return/exchange lifecycle.
         where: {
-          id: { in: productIds },
+          id: { in: currentProductIds },
           availability: { in: [DbProductAvailability.Available, DbProductAvailability.Sold] },
         },
         data: {
@@ -447,12 +602,11 @@ export async function updateInvoiceTx(args: {
         },
       })
 
-      const branchIdForStock = existing.branch.id
-      const accessoryItems = existing.accessoryItems
+      const currentAccessoryItems = invoice.accessoryItems
 
-      // If cancelling, restore accessory stock. If re-activating from cancelled, re-decrement.
-      if (existing.status !== "Cancelled" && nextStatus === "Cancelled" && accessoryItems.length) {
-        for (const item of accessoryItems) {
+      // If cancelling, restore accessory stock
+      if (existing.status !== "Cancelled" && nextStatus === "Cancelled" && currentAccessoryItems.length) {
+        for (const item of currentAccessoryItems) {
           await tx.accessoryStock.upsert({
             where: {
               accessoryId_branchId: { accessoryId: item.accessoryId, branchId: branchIdForStock },
@@ -467,8 +621,9 @@ export async function updateInvoiceTx(args: {
         }
       }
 
-      if (existing.status === "Cancelled" && nextStatus !== "Cancelled" && accessoryItems.length) {
-        for (const item of accessoryItems) {
+      // If re-activating from cancelled, re-decrement stock
+      if (existing.status === "Cancelled" && nextStatus !== "Cancelled" && currentAccessoryItems.length) {
+        for (const item of currentAccessoryItems) {
           const updated = await tx.accessoryStock.updateMany({
             where: {
               branchId: branchIdForStock,
@@ -478,7 +633,7 @@ export async function updateInvoiceTx(args: {
             data: { quantity: { decrement: item.quantity } },
           })
           if (updated.count !== 1) {
-            throw new Error("Insufficient accessory stock for freebies")
+            throw new Error("Insufficient accessory stock")
           }
         }
       }

@@ -159,5 +159,7 @@ export async function handleInvoiceStats(req: NextRequest) {
     : activeOrganizationId
 
   const stats = await service.getInvoiceStats({ branchId })
-  return NextResponse.json(stats)
+  const pendingStats = await service.getPendingInvoiceStats({ branchId })
+  
+  return NextResponse.json({ ...stats, ...pendingStats })
 }

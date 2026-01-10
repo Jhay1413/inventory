@@ -112,6 +112,14 @@ export function AddSaleModal() {
   const selectedProductId = form.watch("productId")
   const selectedFreebieIds = form.watch("freebieProductIds") ?? []
   const selectedFreebieAccessoryItems = form.watch("freebieAccessoryItems") ?? []
+  const selectedPaymentType = form.watch("paymentType")
+
+  // Auto-set status to pending when Bank payment is selected
+  React.useEffect(() => {
+    if (selectedPaymentType === InvoicePaymentType.BANK) {
+      form.setValue("status", InvoiceStatus.PENDING, { shouldValidate: true })
+    }
+  }, [selectedPaymentType, form])
 
   const normalizedSearch = productSearch.trim() || undefined
   const productsQuery = useInvoiceProductsSearch(
@@ -559,6 +567,7 @@ export function AddSaleModal() {
                             <SelectItem value={InvoicePaymentType.CASH}>Cash</SelectItem>
                             <SelectItem value={InvoicePaymentType.CREDIT}>Credit</SelectItem>
                             <SelectItem value={InvoicePaymentType.INSTALLMENT}>Installment</SelectItem>
+                            <SelectItem value={InvoicePaymentType.BANK}>Bank</SelectItem>
                           </SelectContent>
                         </Select>
                         <FormMessage />

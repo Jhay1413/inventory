@@ -7,7 +7,7 @@ export async function createInvoice(args: {
   branchId: string
   createdById: string
   salePrice: number
-  paymentType: "Cash" | "Credit" | "Installment"
+  paymentType: "Cash" | "Credit" | "Installment" | "Bank"
   status: "Pending" | "PartiallyPaid" | "Paid" | "Cancelled"
   customerName?: string
   customerPhone?: string
@@ -26,7 +26,7 @@ export async function listInvoices(args: {
   offset: number
   search?: string
   status?: "Pending" | "PartiallyPaid" | "Paid" | "Cancelled"
-  paymentType?: "Cash" | "Credit" | "Installment"
+  paymentType?: "Cash" | "Credit" | "Installment" | "Bank"
   productTypeId?: string
   condition?: "BrandNew" | "SecondHand"
 }) {
@@ -37,8 +37,10 @@ export async function updateInvoice(args: {
   id: string
   branchId?: string
   data: {
+    freebieProductIds?: string[]
+    freebieAccessoryItems?: { accessoryId: string; quantity: number }[]
     salePrice?: number
-    paymentType?: "Cash" | "Credit" | "Installment"
+    paymentType?: "Cash" | "Credit" | "Installment" | "Bank"
     status?: "Pending" | "PartiallyPaid" | "Paid" | "Cancelled"
     customerName?: string
     customerPhone?: string
@@ -50,4 +52,8 @@ export async function updateInvoice(args: {
 
 export async function getInvoiceStats(args: { branchId?: string }) {
   return dal.getInvoiceStats(args)
+}
+
+export async function getPendingInvoiceStats(args: { branchId?: string }) {
+  return dal.getPendingInvoiceStats(args)
 }

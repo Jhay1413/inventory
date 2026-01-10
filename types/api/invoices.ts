@@ -6,6 +6,7 @@ export const InvoicePaymentType = {
   CASH: "Cash",
   CREDIT: "Credit",
   INSTALLMENT: "Installment",
+  BANK: "Bank",
 } as const
 
 export const InvoiceStatus = {
@@ -25,6 +26,7 @@ export const InvoiceSchema = z.object({
     InvoicePaymentType.CASH,
     InvoicePaymentType.CREDIT,
     InvoicePaymentType.INSTALLMENT,
+    InvoicePaymentType.BANK,
   ] as const),
   status: z.enum([
     InvoiceStatus.PENDING,
@@ -95,6 +97,7 @@ export const CreateInvoiceSchema = z.object({
     InvoicePaymentType.CASH,
     InvoicePaymentType.CREDIT,
     InvoicePaymentType.INSTALLMENT,
+    InvoicePaymentType.BANK,
   ] as const),
   status: z
     .enum([
@@ -104,9 +107,9 @@ export const CreateInvoiceSchema = z.object({
       InvoiceStatus.CANCELLED,
     ] as const)
     .optional(),
-  customerName: z.string().trim().min(1).optional(),
-  customerPhone: z.string().trim().min(1).optional(),
-  notes: z.string().trim().min(1).optional(),
+  customerName: z.string().optional(),
+  customerPhone: z.string().optional(),
+  notes: z.string().optional(),
 })
 
 export type CreateInvoiceInput = z.infer<typeof CreateInvoiceSchema>
@@ -165,6 +168,7 @@ export const InvoiceListQuerySchema = z.object({
       InvoicePaymentType.CASH,
       InvoicePaymentType.CREDIT,
       InvoicePaymentType.INSTALLMENT,
+      InvoicePaymentType.BANK,
     ] as const)
     .optional(),
   productTypeId: z.string().min(1).optional(),
@@ -195,6 +199,8 @@ export const InvoiceStatsResponseSchema = z.object({
   totalCount: z.number().int(),
   todayCount: z.number().int(),
   weeklyCount: z.number().int(),
+  pendingSales: z.number().int(),
+  pendingCount: z.number().int(),
 })
 
 export type InvoiceStatsResponse = z.infer<typeof InvoiceStatsResponseSchema>
