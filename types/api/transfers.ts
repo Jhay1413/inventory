@@ -50,17 +50,19 @@ export type TransferResponse = z.infer<typeof TransferResponseSchema>
 
 export const TransferDirectionSchema = z.enum(["incoming", "outgoing", "all"] as const)
 
+const TransferStatusEnum = z.enum([
+  TransferStatus.PENDING,
+  TransferStatus.APPROVED,
+  TransferStatus.REJECTED,
+  TransferStatus.CANCELLED,
+  TransferStatus.COMPLETED,
+] as const)
+
 export const TransferListQuerySchema = z.object({
   direction: TransferDirectionSchema,
-  status: z
-    .enum([
-      TransferStatus.PENDING,
-      TransferStatus.APPROVED,
-      TransferStatus.REJECTED,
-      TransferStatus.CANCELLED,
-      TransferStatus.COMPLETED,
-    ] as const)
-    .optional(),
+  status: TransferStatusEnum.optional(),
+  statusNot: TransferStatusEnum.optional(),
+  search: z.string().optional(),
   limit: z.coerce.number().int().positive().max(100).default(25),
   offset: z.coerce.number().int().min(0).default(0),
 })

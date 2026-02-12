@@ -43,12 +43,15 @@ export async function listAccessoryTransfers(args: {
   branchId: string
   direction: "incoming" | "outgoing" | "all"
   status?: "Pending" | "Approved" | "Rejected" | "Cancelled" | "Completed"
+  statusNot?: "Pending" | "Approved" | "Rejected" | "Cancelled" | "Completed"
+  search?: string
   limit: number
   offset: number
 }) {
   const where: any = {}
 
   if (args.status) where.status = args.status
+  else if (args.statusNot) where.status = { not: args.statusNot }
 
   if (args.direction === "incoming") {
     where.toBranchId = args.branchId
@@ -56,6 +59,17 @@ export async function listAccessoryTransfers(args: {
     where.fromBranchId = args.branchId
   } else {
     where.OR = [{ fromBranchId: args.branchId }, { toBranchId: args.branchId }]
+  }
+
+  if (args.search) {
+    where.AND = [
+      {
+        OR: [
+          { id: { contains: args.search, mode: "insensitive" } },
+          { accessory: { name: { contains: args.search, mode: "insensitive" } } },
+        ],
+      },
+    ]
   }
 
   const [total, transfers] = await Promise.all([

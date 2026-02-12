@@ -58,13 +58,22 @@ export default function TransferHistoryPage() {
   const PER_PAGE = 25
 
   const [search, setSearch] = React.useState("")
+  const [debouncedSearch, setDebouncedSearch] = React.useState("")
   const [gadgetsPage, setGadgetsPage] = React.useState(1)
   const [accessoriesPage, setAccessoriesPage] = React.useState(1)
-  const [selectedTransfer, setSelectedTransfer] = React.useState<typeof allTransfers[0] | null>(null)
-  const [selectedAccessoryTransfer, setSelectedAccessoryTransfer] = React.useState<typeof allAccessoryTransfers[0] | null>(null)
+
+  React.useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search.trim())
+      setGadgetsPage(1)
+      setAccessoriesPage(1)
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [search])
 
   const { data, isLoading, error } = useTransfers({
     direction: "all",
+    search: debouncedSearch || undefined,
     limit: PER_PAGE,
     offset: (gadgetsPage - 1) * PER_PAGE,
   })
@@ -82,52 +91,17 @@ export default function TransferHistoryPage() {
     { enabled: true }
   )
 
-  const allTransfers = data?.transfers ?? []
-  const allAccessoryTransfers = accessoryData?.transfers ?? []
+  const transfers = data?.transfers ?? []
+  const accessoryTransfers = accessoryData?.transfers ?? []
+
+  const [selectedTransfer, setSelectedTransfer] = React.useState<typeof transfers[0] | null>(null)
+  const [selectedAccessoryTransfer, setSelectedAccessoryTransfer] = React.useState<typeof accessoryTransfers[0] | null>(null)
 
   const gadgetsTotal = data?.pagination.total ?? 0
   const gadgetsPageCount = Math.max(1, Math.ceil(gadgetsTotal / PER_PAGE))
 
   const accessoriesTotal = accessoryData?.pagination.total ?? 0
   const accessoriesPageCount = Math.max(1, Math.ceil(accessoriesTotal / PER_PAGE))
-
-  React.useEffect(() => {
-    setGadgetsPage(1)
-  }, [search])
-
-  React.useEffect(() => {
-    setAccessoriesPage(1)
-  }, [search])
-
-  const visibleTransfers = React.useMemo(() => {
-    const normalized = search.trim().toLowerCase()
-
-    if (!normalized) return allTransfers
-
-    return allTransfers.filter((t) => {
-      const productName = `${t.product.productModel.productType.name} ${t.product.productModel.name}`
-      return (
-        t.id.toLowerCase().includes(normalized) ||
-        t.product.imei.toLowerCase().includes(normalized) ||
-        productName.toLowerCase().includes(normalized)
-      )
-    })
-  }, [allTransfers, search])
-
-  const visibleAccessoryTransfers = React.useMemo(() => {
-    const normalized = search.trim().toLowerCase()
-
-    if (!normalized) return allAccessoryTransfers
-
-    return allAccessoryTransfers.filter((t) => {
-      return (
-        t.id.toLowerCase().includes(normalized) ||
-        t.accessory.name.toLowerCase().includes(normalized) ||
-        t.fromBranch.name.toLowerCase().includes(normalized) ||
-        t.toBranch.name.toLowerCase().includes(normalized)
-      )
-    })
-  }, [allAccessoryTransfers, search])
 
   return (
     <div className="flex flex-col gap-4 p-4 md:gap-6 md:p-6">
@@ -172,6 +146,7 @@ export default function TransferHistoryPage() {
                     <TableHead>Transfer ID</TableHead>
                     <TableHead>Date Requested</TableHead>
                     <TableHead>Product</TableHead>
+                    <TableHead>IMEI</TableHead>
                     <TableHead>From</TableHead>
                     <TableHead>To</TableHead>
                     <TableHead>Updated</TableHead>
@@ -180,7 +155,7 @@ export default function TransferHistoryPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {visibleTransfers.map((t) => (
+                  {transfers.map((t) => (
                     <TableRow key={t.id}>
                       <TableCell className="font-mono font-semibold">{t.id}</TableCell>
                       <TableCell>
@@ -192,6 +167,7 @@ export default function TransferHistoryPage() {
                       <TableCell className="font-medium">
                         {t.product.productModel.productType.name} {t.product.productModel.name}
                       </TableCell>
+                      <TableCell className="font-mono text-xs">{t.product.imei}</TableCell>
                       <TableCell>{t.fromBranch.name}</TableCell>
                       <TableCell>{t.toBranch.name}</TableCell>
                       <TableCell>{new Date(t.updatedAt).toLocaleDateString()}</TableCell>
@@ -201,8 +177,8 @@ export default function TransferHistoryPage() {
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right">
-                        <Button 
-                          variant="ghost" 
+                        <Button
+                          variant="ghost"
                           size="sm"
                           onClick={() => setSelectedTransfer(t)}
                         >
@@ -211,16 +187,16 @@ export default function TransferHistoryPage() {
                       </TableCell>
                     </TableRow>
                   ))}
-                  {!isLoading && !error && visibleTransfers.length === 0 ? (
+                  {!isLoading && !error && transfers.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={8} className="text-center text-muted-foreground">
+                      <TableCell colSpan={9} className="text-center text-muted-foreground">
                         No gadget transfers found.
                       </TableCell>
                     </TableRow>
                   ) : null}
                   {error ? (
                     <TableRow>
-                      <TableCell colSpan={8} className="text-center text-destructive">
+                      <TableCell colSpan={9} className="text-center text-destructive">
                         Failed to load gadget transfer history.
                       </TableCell>
                     </TableRow>
@@ -271,7 +247,7 @@ export default function TransferHistoryPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {visibleAccessoryTransfers.map((t) => (
+                  {accessoryTransfers.map((t) => (
                     <TableRow key={t.id}>
                       <TableCell className="font-mono font-semibold">{t.id}</TableCell>
                       <TableCell>
@@ -301,7 +277,7 @@ export default function TransferHistoryPage() {
                       </TableCell>
                     </TableRow>
                   ))}
-                  {!accessoryLoading && !accessoryError && visibleAccessoryTransfers.length === 0 ? (
+                  {!accessoryLoading && !accessoryError && accessoryTransfers.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={9} className="text-center text-muted-foreground">
                         No accessory transfers found.

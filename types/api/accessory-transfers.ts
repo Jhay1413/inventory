@@ -46,17 +46,19 @@ export type AccessoryTransferResponse = z.infer<typeof AccessoryTransferResponse
 
 export const AccessoryTransferDirectionSchema = z.enum(["incoming", "outgoing", "all"] as const)
 
+const AccessoryTransferStatusEnum = z.enum([
+  TransferStatus.PENDING,
+  TransferStatus.APPROVED,
+  TransferStatus.REJECTED,
+  TransferStatus.CANCELLED,
+  TransferStatus.COMPLETED,
+] as const)
+
 export const AccessoryTransferListQuerySchema = z.object({
   direction: AccessoryTransferDirectionSchema,
-  status: z
-    .enum([
-      TransferStatus.PENDING,
-      TransferStatus.APPROVED,
-      TransferStatus.REJECTED,
-      TransferStatus.CANCELLED,
-      TransferStatus.COMPLETED,
-    ] as const)
-    .optional(),
+  status: AccessoryTransferStatusEnum.optional(),
+  statusNot: AccessoryTransferStatusEnum.optional(),
+  search: z.string().optional(),
   limit: z.coerce.number().int().positive().max(100).default(25),
   offset: z.coerce.number().int().min(0).default(0),
 })

@@ -46,6 +46,8 @@ export async function listAccessoryTransfers(
     branchId: ctx.branchId,
     direction: query.direction,
     status: query.status,
+    statusNot: query.statusNot,
+    search: query.search,
     limit: query.limit,
     offset: query.offset,
   })

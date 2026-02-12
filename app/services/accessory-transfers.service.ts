@@ -33,6 +33,8 @@ class AccessoryTransfersService {
     const params = new URLSearchParams()
     if (parsed.direction) params.append("direction", String(parsed.direction))
     if (parsed.status) params.append("status", String(parsed.status))
+    if (parsed.statusNot) params.append("statusNot", String(parsed.statusNot))
+    if (parsed.search) params.append("search", parsed.search)
     if (parsed.limit) params.append("limit", String(parsed.limit))
     if (parsed.offset) params.append("offset", String(parsed.offset))
 

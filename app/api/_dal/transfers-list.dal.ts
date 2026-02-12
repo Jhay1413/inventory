@@ -7,6 +7,8 @@ export async function listTransfers(args: {
   direction: TransferDirection
   organizationId: string
   status?: TransferStatus
+  statusNot?: TransferStatus
+  search?: string
   limit: number
   offset: number
 }) {
@@ -19,7 +21,24 @@ export async function listTransfers(args: {
             OR: [{ fromBranchId: args.organizationId }, { toBranchId: args.organizationId }],
           }
 
-  const finalWhere = args.status ? { ...where, status: args.status } : where
+  const statusFilter = args.status
+    ? { status: args.status }
+    : args.statusNot
+      ? { status: { not: args.statusNot } }
+      : {}
+
+  const searchFilter = args.search
+    ? {
+        OR: [
+          { id: { contains: args.search, mode: "insensitive" as const } },
+          { product: { imei: { contains: args.search, mode: "insensitive" as const } } },
+          { product: { productModel: { name: { contains: args.search, mode: "insensitive" as const } } } },
+          { product: { productModel: { productType: { name: { contains: args.search, mode: "insensitive" as const } } } } },
+        ],
+      }
+    : {}
+
+  const finalWhere = { ...where, ...statusFilter, AND: args.search ? [searchFilter] : [] }
 
   const [total, transfers] = await Promise.all([
     prisma.transfer.count({ where: finalWhere }),

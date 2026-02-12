@@ -7,6 +7,8 @@ export async function handleListTransfers(req: NextRequest) {
   const parsedQuery = TransferListQuerySchema.safeParse({
     direction: req.nextUrl.searchParams.get("direction") ?? undefined,
     status: req.nextUrl.searchParams.get("status") ?? undefined,
+    statusNot: req.nextUrl.searchParams.get("statusNot") ?? undefined,
+    search: req.nextUrl.searchParams.get("search") ?? undefined,
     limit: req.nextUrl.searchParams.get("limit") ?? undefined,
     offset: req.nextUrl.searchParams.get("offset") ?? undefined,
   })

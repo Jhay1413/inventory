@@ -55,6 +55,8 @@ class TransfersService {
     const params = new URLSearchParams()
     if (filters.direction) params.append("direction", String(filters.direction))
     if (filters.status) params.append("status", String(filters.status))
+    if (filters.statusNot) params.append("statusNot", String(filters.statusNot))
+    if (filters.search) params.append("search", filters.search)
     if (filters.limit) params.append("limit", String(filters.limit))
     if (filters.offset) params.append("offset", String(filters.offset))
 
