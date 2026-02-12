@@ -27,6 +27,18 @@ export async function createTransfer(
     return { ok: false as const, error: "Product is not available for transfer" }
   }
 
+  // Check for existing pending transfer
+  const existingTransfer = await prisma.transfer.findFirst({
+    where: {
+      productId: input.productId,
+      status: "Pending",
+    },
+  })
+
+  if (existingTransfer) {
+    return { ok: false as const, error: "Product already has a pending transfer" }
+  }
+
   const transfer = await dal.createTransfer({
     productId: input.productId,
     fromBranchId: ctx.fromBranchId,
