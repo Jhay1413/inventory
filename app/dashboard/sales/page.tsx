@@ -34,6 +34,7 @@ import { AddSaleModal } from "@/app/dashboard/sales/components/add-sale-modal"
 import { UpdateInvoiceModal } from "@/app/dashboard/sales/components/update-invoice-modal"
 import { authClient } from "@/app/lib/auth-client"
 import { ViewInvoiceModal } from "./components/view-invoice-modal"
+import { formatLocalDate } from "@/lib/utils"
 
 type ConditionFilter = "all" | "BrandNew" | "SecondHand"
 
@@ -289,7 +290,7 @@ export default function SalesPage() {
                     <TableCell>
                       <div className="flex items-center gap-2">
                         <IconCalendar className="h-4 w-4 text-muted-foreground" />
-                        {new Date(inv.createdAt).toLocaleDateString()}
+                        {formatLocalDate(inv.createdAt)}
                       </div>
                     </TableCell>
                     <TableCell>

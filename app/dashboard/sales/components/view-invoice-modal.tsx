@@ -22,6 +22,7 @@ import {
 
 import { useInvoice } from "@/app/queries/invoices.queries"
 import { CreateReturnModal } from "@/app/dashboard/sales/components/create-return-modal"
+import { formatLocalDateTime } from "@/lib/utils"
 
 function formatMoney(value: number) {
   return value.toLocaleString()
@@ -89,7 +90,7 @@ export function ViewInvoiceModal({ invoiceId }: { invoiceId: string }) {
                 <div className="mt-1 flex items-center gap-2">
                   <IconCalendar className="h-4 w-4 text-muted-foreground" />
                   <p className="text-sm font-medium">
-                    {new Date(invoice.createdAt).toLocaleString()}
+                    {formatLocalDateTime(invoice.createdAt)}
                   </p>
                 </div>
               </div>

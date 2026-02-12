@@ -27,6 +27,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
+import { formatLocalDate } from "@/lib/utils"
 
 // Mock transfer data
 const transfersData = [
@@ -266,7 +267,7 @@ export default function TransfersPage() {
                   <TableCell>
                     <div className="flex items-center gap-2">
                       <IconCalendar className="h-4 w-4 text-muted-foreground" />
-                      {new Date(transfer.date).toLocaleDateString()}
+                      {formatLocalDate(transfer.date)}
                     </div>
                   </TableCell>
                   <TableCell>
@@ -294,7 +295,7 @@ export default function TransfersPage() {
                     {transfer.estimatedArrival !== "-" ? (
                       <div className="flex items-center gap-2">
                         <IconClock className="h-4 w-4 text-muted-foreground" />
-                        {new Date(transfer.estimatedArrival).toLocaleDateString()}
+                        {formatLocalDate(transfer.estimatedArrival)}
                       </div>
                     ) : (
                       <span className="text-muted-foreground">-</span>

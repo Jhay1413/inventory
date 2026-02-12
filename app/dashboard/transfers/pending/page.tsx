@@ -37,6 +37,7 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/ui/tabs"
+import { formatLocalDate, formatLocalDateTime } from "@/lib/utils"
 
 function statusBadgeClass(status: string) {
   switch (status) {
@@ -165,7 +166,7 @@ export default function PendingTransfersPage() {
                 <TableBody>
                   {transfers.map((t) => (
                     <TableRow key={t.id}>
-                      <TableCell>{new Date(t.createdAt).toLocaleDateString()}</TableCell>
+                      <TableCell>{formatLocalDate(t.createdAt)}</TableCell>
                       <TableCell className="font-medium">
                         {t.product.productModel.productType.name} {t.product.productModel.name}
                       </TableCell>
@@ -244,7 +245,7 @@ export default function PendingTransfersPage() {
                 <TableBody>
                   {accessoryTransfers.map((t) => (
                     <TableRow key={t.id}>
-                      <TableCell>{new Date(t.createdAt).toLocaleDateString()}</TableCell>
+                      <TableCell>{formatLocalDate(t.createdAt)}</TableCell>
                       <TableCell className="font-medium">{t.accessory.name}</TableCell>
                       <TableCell className="text-center">{t.quantity.toLocaleString()}</TableCell>
                       <TableCell>{t.fromBranch.name}</TableCell>
@@ -377,11 +378,11 @@ export default function PendingTransfersPage() {
                     </div>
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Requested:</span>
-                      <span className="font-medium">{new Date(selectedTransfer.createdAt).toLocaleString()}</span>
+                      <span className="font-medium">{formatLocalDateTime(selectedTransfer.createdAt)}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Last Updated:</span>
-                      <span className="font-medium">{new Date(selectedTransfer.updatedAt).toLocaleString()}</span>
+                      <span className="font-medium">{formatLocalDateTime(selectedTransfer.updatedAt)}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Requested By:</span>
@@ -390,7 +391,7 @@ export default function PendingTransfersPage() {
                     {selectedTransfer.receivedAt && (
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Received:</span>
-                        <span className="font-medium">{new Date(selectedTransfer.receivedAt).toLocaleString()}</span>
+                        <span className="font-medium">{formatLocalDateTime(selectedTransfer.receivedAt)}</span>
                       </div>
                     )}
                     {selectedTransfer.receivedBy && (
@@ -478,11 +479,11 @@ export default function PendingTransfersPage() {
                     </div>
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Requested:</span>
-                      <span className="font-medium">{new Date(selectedAccessoryTransfer.createdAt).toLocaleString()}</span>
+                      <span className="font-medium">{formatLocalDateTime(selectedAccessoryTransfer.createdAt)}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Last Updated:</span>
-                      <span className="font-medium">{new Date(selectedAccessoryTransfer.updatedAt).toLocaleString()}</span>
+                      <span className="font-medium">{formatLocalDateTime(selectedAccessoryTransfer.updatedAt)}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Requested By:</span>
@@ -491,7 +492,7 @@ export default function PendingTransfersPage() {
                     {selectedAccessoryTransfer.receivedAt && (
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Received:</span>
-                        <span className="font-medium">{new Date(selectedAccessoryTransfer.receivedAt).toLocaleString()}</span>
+                        <span className="font-medium">{formatLocalDateTime(selectedAccessoryTransfer.receivedAt)}</span>
                       </div>
                     )}
                     {selectedAccessoryTransfer.receivedBy && (

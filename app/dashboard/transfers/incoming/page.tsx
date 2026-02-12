@@ -37,6 +37,7 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/ui/tabs"
+import { formatLocalDate, formatLocalDateTime } from "@/lib/utils"
 
 function statusBadgeClass(status: string) {
   switch (status) {
@@ -169,7 +170,7 @@ export default function IncomingTransfersPage() {
                 <TableBody>
                   {transfers.map((t) => (
                     <TableRow key={t.id}>
-                      <TableCell>{new Date(t.createdAt).toLocaleDateString()}</TableCell>
+                      <TableCell>{formatLocalDate(t.createdAt)}</TableCell>
                       <TableCell className="font-medium">
                         {t.product.productModel.productType.name} {t.product.productModel.name}
                       </TableCell>
