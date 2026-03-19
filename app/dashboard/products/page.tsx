@@ -37,7 +37,7 @@ import { useProductTypes } from "@/app/queries/product-types.queries"
 import { useProductStats } from "@/app/queries/product-stats.queries"
 import { useAccessoryStockList } from "@/app/queries/accessory-stock.queries"
 import { authClient } from "@/app/lib/auth-client"
-import { useOrgContext } from "@/app/queries/org-context.queries"
+import { useBranches } from "@/app/queries/branches.queries"
 
 export default function ProductsPage() {
   const PER_PAGE = 15
@@ -45,7 +45,7 @@ export default function ProductsPage() {
   const [tab, setTab] = React.useState<"gadgets" | "accessories">("gadgets")
   const [searchQuery, setSearchQuery] = React.useState("")
   const [typeFilter, setTypeFilter] = React.useState("all")
-  const [branchScope, setBranchScope] = React.useState<"all" | "current">("all")
+  const [branchFilter, setBranchFilter] = React.useState("all")
   const [gadgetsPage, setGadgetsPage] = React.useState(1)
   const [accessoriesPage, setAccessoriesPage] = React.useState(1)
   const [conditionFilter, setConditionFilter] = React.useState<"all" | "BrandNew" | "SecondHand">(
@@ -59,20 +59,12 @@ export default function ProductsPage() {
   >("all")
 
   const { data: activeOrganization } = authClient.useActiveOrganization()
-  const { data: orgContext } = useOrgContext()
 
   const activeOrganizationId = React.useMemo(() => {
     if (!activeOrganization || typeof activeOrganization !== "object") return undefined
     if (!("id" in activeOrganization)) return undefined
     const id = (activeOrganization as { id?: unknown }).id
     return typeof id === "string" ? id : undefined
-  }, [activeOrganization])
-
-  const activeOrganizationName = React.useMemo(() => {
-    if (!activeOrganization || typeof activeOrganization !== "object") return undefined
-    if (!("name" in activeOrganization)) return undefined
-    const name = (activeOrganization as { name?: unknown }).name
-    return typeof name === "string" ? name : undefined
   }, [activeOrganization])
 
   const isAdminOrganization = React.useMemo(() => {
@@ -93,13 +85,14 @@ export default function ProductsPage() {
     }
   }, [activeOrganization])
 
+  const { data: branchesData } = useBranches()
+
   const listFilters = React.useMemo(
     () => ({
       limit: PER_PAGE,
       offset: (gadgetsPage - 1) * PER_PAGE,
       search: searchQuery.trim() || undefined,
-      branchId:
-        !isAdminOrganization && branchScope === "current" ? activeOrganizationId : undefined,
+      branchId: branchFilter === "all" ? undefined : branchFilter,
       productTypeId: typeFilter === "all" ? undefined : typeFilter,
       condition: conditionFilter === "all" ? undefined : conditionFilter,
       availability: availabilityFilter === "all" ? undefined : availabilityFilter,
@@ -107,13 +100,11 @@ export default function ProductsPage() {
         defectiveFilter === "all" ? undefined : defectiveFilter === "defective" ? true : false,
     }),
     [
-      activeOrganizationId,
       availabilityFilter,
-      branchScope,
+      branchFilter,
       conditionFilter,
       defectiveFilter,
       gadgetsPage,
-      isAdminOrganization,
       PER_PAGE,
       searchQuery,
       typeFilter,
@@ -137,11 +128,9 @@ export default function ProductsPage() {
     () => ({
       limit: PER_PAGE,
       offset: (accessoriesPage - 1) * PER_PAGE,
-      ...(!isAdminOrganization && branchScope === "current" && activeOrganizationId
-        ? { branchId: activeOrganizationId }
-        : {}),
+      ...(branchFilter !== "all" ? { branchId: branchFilter } : {}),
     }),
-    [PER_PAGE, accessoriesPage, activeOrganizationId, branchScope, isAdminOrganization]
+    [PER_PAGE, accessoriesPage, branchFilter]
   )
 
   const { data: accessoryStockData, isLoading: accessoriesLoading } = useAccessoryStockList(
@@ -151,11 +140,11 @@ export default function ProductsPage() {
 
   React.useEffect(() => {
     setGadgetsPage(1)
-  }, [searchQuery, typeFilter, conditionFilter, availabilityFilter, defectiveFilter, branchScope])
+  }, [searchQuery, typeFilter, conditionFilter, availabilityFilter, defectiveFilter, branchFilter])
 
   React.useEffect(() => {
     setAccessoriesPage(1)
-  }, [branchScope])
+  }, [branchFilter])
 
   const products = productsData?.products ?? []
   const gadgetsTotal = productsData?.pagination.total ?? 0
@@ -261,9 +250,7 @@ export default function ProductsPage() {
               <CardDescription>Filter gadgets by various criteria</CardDescription>
             </CardHeader>
             <CardContent>
-              <div
-                className={`grid gap-3 ${isAdminOrganization ? "md:grid-cols-5" : "md:grid-cols-6"}`}
-              >
+              <div className="grid gap-3 md:grid-cols-6">
                 <div className="relative">
                   <IconSearch className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                   <Input
@@ -274,19 +261,19 @@ export default function ProductsPage() {
                   />
                 </div>
 
-                {!isAdminOrganization ? (
-                  <Select value={branchScope} onValueChange={(v) => setBranchScope(v as typeof branchScope)}>
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Branch" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All branches</SelectItem>
-                      <SelectItem value="current">
-                        {activeOrganizationName ? `My branch (${activeOrganizationName})` : "My branch"}
+                <Select value={branchFilter} onValueChange={setBranchFilter}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Branch" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Branches</SelectItem>
+                    {(branchesData?.branches ?? []).map((b) => (
+                      <SelectItem key={b.id} value={b.id}>
+                        {b.name}
                       </SelectItem>
-                    </SelectContent>
-                  </Select>
-                ) : null}
+                    ))}
+                  </SelectContent>
+                </Select>
 
                 <Select value={typeFilter} onValueChange={setTypeFilter}>
                   <SelectTrigger className="w-full">
@@ -463,7 +450,30 @@ export default function ProductsPage() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="accessories" className="mt-4">
+        <TabsContent value="accessories" className="mt-4 space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Filters</CardTitle>
+              <CardDescription>Filter accessories by branch</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-3 md:grid-cols-4">
+                <Select value={branchFilter} onValueChange={setBranchFilter}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Branch" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Branches</SelectItem>
+                    {(branchesData?.branches ?? []).map((b) => (
+                      <SelectItem key={b.id} value={b.id}>
+                        {b.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </CardContent>
+          </Card>
           <Card>
             <CardHeader>
               <CardTitle>Accessories Inventory</CardTitle>
