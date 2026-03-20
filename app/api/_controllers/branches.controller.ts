@@ -10,10 +10,6 @@ export async function handleListBranches(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
-  if (!isAdminOrganization) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-  }
-
   try {
     const result = await service.listBranchesOverview()
     return NextResponse.json(result)
