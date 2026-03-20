@@ -139,6 +139,12 @@ export default function ProductsPage() {
   )
 
   React.useEffect(() => {
+    if (!isAdminOrganization && activeOrganizationId) {
+      setBranchFilter(activeOrganizationId)
+    }
+  }, [isAdminOrganization, activeOrganizationId])
+
+  React.useEffect(() => {
     setGadgetsPage(1)
   }, [searchQuery, typeFilter, conditionFilter, availabilityFilter, defectiveFilter, branchFilter])
 

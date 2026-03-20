@@ -75,10 +75,7 @@ export async function listBranchesOverview() {
     orderBy: [{ name: "asc" }],
   })
 
-  const branchOrgs = organizations.filter((org) => {
-    const meta = safeParseOrgMetadata(org.metadata)
-    return meta?.isAdminOrganization !== true
-  })
+  const branchOrgs = organizations
 
   const branchIds = branchOrgs.map((o) => o.id)
   if (branchIds.length === 0) {

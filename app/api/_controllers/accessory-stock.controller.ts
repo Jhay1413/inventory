@@ -21,23 +21,12 @@ export async function handleListAccessoryStock(req: NextRequest) {
     )
   }
 
-  const { activeOrganizationId, isAdminOrganization } = await getActiveOrgContext(req)
+  const { activeOrganizationId } = await getActiveOrgContext(req)
   if (!activeOrganizationId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
-  const requestedBranchId = parsedQuery.data.branchId
-  let branchId: string | undefined = requestedBranchId
-
-  if (!isAdminOrganization) {
-    // Branch users can view overall inventory (all branches) when no branch is requested.
-    // If they do request a branch filter, only allow their active branch.
-    if (requestedBranchId && requestedBranchId !== activeOrganizationId) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-    }
-
-    branchId = requestedBranchId ? activeOrganizationId : undefined
-  }
+  const branchId = parsedQuery.data.branchId
 
   try {
     const result = await service.listAccessoryStocks({
