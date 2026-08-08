@@ -85,7 +85,7 @@ export async function createInvoiceTx(args: {
   notes?: string
 }) {
   try {
-    return await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx) => {
       const freebieIds = Array.from(new Set(args.freebieProductIds ?? []))
         .filter((id) => id !== args.productId)
 
@@ -93,55 +93,14 @@ export async function createInvoiceTx(args: {
 
       const targetAvailability = args.status === "Cancelled" ? "Available" : "Sold"
 
-      if (targetAvailability === "Sold") {
-        if (freebieIds.length) {
-          const freebies = await tx.product.findMany({
-            where: { id: { in: freebieIds } },
-            select: { id: true, branchId: true, availability: true },
-          })
-
-          if (freebies.length !== freebieIds.length) {
-            return { ok: false as const, error: "One or more freebies not found" }
-          }
-
-          const invalid = freebies.find(
-            (p) => p.branchId !== args.branchId || p.availability !== "Available"
-          )
-          if (invalid) {
-            return {
-              ok: false as const,
-              error: "One or more freebies are not available in your branch",
-            }
-          }
-        }
-
-        if (freebieAccessoryItems.length) {
-          const stocks = await tx.accessoryStock.findMany({
-            where: {
-              branchId: args.branchId,
-              accessoryId: { in: freebieAccessoryItems.map((x) => x.accessoryId) },
-            },
-            select: { accessoryId: true, quantity: true },
-          })
-
-          if (stocks.length !== freebieAccessoryItems.length) {
-            return { ok: false as const, error: "One or more accessory freebies not found" }
-          }
-
-          const insufficient = freebieAccessoryItems.find((item) => {
-            const stock = stocks.find((s) => s.accessoryId === item.accessoryId)
-            return !stock || stock.quantity < item.quantity
-          })
-          if (insufficient) {
-            return { ok: false as const, error: "Insufficient accessory stock for freebies" }
-          }
-        }
-      }
-
-      const product = await tx.product.findUnique({
-        where: { id: args.productId },
+      // Fetch the sold product and any freebies in a single round trip; each query
+      // inside an interactive transaction is a network hop, so keep them to a minimum.
+      const products = await tx.product.findMany({
+        where: { id: { in: [args.productId, ...freebieIds] } },
         select: { id: true, branchId: true, availability: true },
       })
+
+      const product = products.find((p) => p.id === args.productId)
 
       if (!product) {
         return { ok: false as const, error: "Product not found" }
@@ -153,6 +112,24 @@ export async function createInvoiceTx(args: {
 
       if (product.availability !== "Available") {
         return { ok: false as const, error: "Product is not available" }
+      }
+
+      if (targetAvailability === "Sold" && freebieIds.length) {
+        const freebies = products.filter((p) => p.id !== args.productId)
+
+        if (freebies.length !== freebieIds.length) {
+          return { ok: false as const, error: "One or more freebies not found" }
+        }
+
+        const invalid = freebies.find(
+          (p) => p.branchId !== args.branchId || p.availability !== "Available"
+        )
+        if (invalid) {
+          return {
+            ok: false as const,
+            error: "One or more freebies are not available in your branch",
+          }
+        }
       }
 
       const invoice = await tx.invoice.create({
@@ -194,7 +171,7 @@ export async function createInvoiceTx(args: {
             })),
           },
         },
-        include: invoiceInclude,
+        select: { id: true, status: true, paymentType: true, salePrice: true },
       })
 
       await tx.product.updateMany({
@@ -220,27 +197,46 @@ export async function createInvoiceTx(args: {
 
       if (targetAvailability === "Sold") {
         const soldProductIds = [args.productId, ...freebieIds]
-        await Promise.all(
-          soldProductIds.map((productId) =>
-            createProductAuditLog(tx, {
-              productId,
-              action: "Sold",
-              actorUserId: args.createdById,
-              actorOrganizationId: args.branchId,
-              invoiceId: invoice.id,
-              details: {
-                status: invoice.status,
-                paymentType: invoice.paymentType,
-                salePrice: invoice.salePrice,
-                isFreebie: productId !== args.productId,
-              },
-            })
-          )
-        )
+        await tx.productAuditLog.createMany({
+          data: soldProductIds.map((productId) => ({
+            productId,
+            action: "Sold" as const,
+            actorUserId: args.createdById,
+            actorOrganizationId: args.branchId,
+            invoiceId: invoice.id,
+            details: {
+              status: invoice.status,
+              paymentType: invoice.paymentType,
+              salePrice: invoice.salePrice,
+              isFreebie: productId !== args.productId,
+            },
+          })),
+        })
       }
 
-      return { ok: true as const, invoice }
+      return { ok: true as const, invoiceId: invoice.id }
+    }, {
+      // Each query is a network round trip through the Neon adapter, so the 5s
+      // default is easy to exceed on a sale with several freebies.
+      maxWait: 10_000,
+      timeout: 20_000,
     })
+
+    if (!result.ok) {
+      return result
+    }
+
+    // Read the full invoice outside the transaction to keep the write path short.
+    const invoice = await prisma.invoice.findUnique({
+      where: { id: result.invoiceId },
+      include: invoiceInclude,
+    })
+
+    if (!invoice) {
+      return { ok: false as const, error: "Invoice not found after creation" }
+    }
+
+    return { ok: true as const, invoice }
   } catch (e) {
     const message = e instanceof Error ? e.message : "Failed to create invoice"
     return { ok: false as const, error: message }
@@ -639,6 +635,9 @@ export async function updateInvoiceTx(args: {
       }
 
       return { ok: true as const, invoice }
+    }, {
+      maxWait: 10_000,
+      timeout: 20_000,
     })
   } catch (e) {
     const message = e instanceof Error ? e.message : "Failed to update invoice"
